@@ -1,14 +1,13 @@
-// src/api.js
 import axios from "axios";
 
-// ✅ Base URL (Render backend)
+// ✅ Connect frontend to backend (Vercel → Render)
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
 });
 
-// ✅ Attach token automatically if logged in
+// ✅ Automatically attach JWT token if logged in
 API.interceptors.request.use((config) => {
-  const auth = JSON.parse(localStorage.getItem("auth")) || null;
+  const auth = JSON.parse(localStorage.getItem("auth") || "null");
   if (auth?.token) {
     config.headers.Authorization = `Bearer ${auth.token}`;
   }
