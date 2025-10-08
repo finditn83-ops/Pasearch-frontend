@@ -1,5 +1,15 @@
 // src/App.jsx
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import NavBar from "./components/NavBar";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { toast } from "react-toastify";
+
+// === Utils ===
+import { isTokenExpired, clearAuth } from "./utils/auth";
+
+// === Components ===
+import LoadingOverlay from "./components/LoadingOverlay";
+import PasearchAssistant from "./components/PasearchAssistant";
 
 // === Pages ===
 import Home from "./pages/Home";
@@ -12,23 +22,79 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Report from "./pages/Report";
 import ResetPassword from "./pages/ResetPassword";
 import Success from "./pages/Success";
-// === Components ===
-import PasearchAssistant from "./components/PasearchAssistant";
 
-// === Protected Route Wrapper ===
-function PrivateRoute({ children, allowedRole }) {
+// =============================================================
+// 🛡️ Protected Route Wrapper
+// =============================================================
+function PrivateRoute({ children, allowedRoles = [] }) {
   const auth = JSON.parse(localStorage.getItem("auth"));
-  if (!auth?.token) return <Navigate to="/" replace />;
-  if (allowedRole && auth.role !== allowedRole) return <Navigate to="/" replace />;
+
+  // Not logged in
+  if (!auth?.token) {
+    toast.warning("Please log in to continue.");
+    return <Navigate to="/" replace />;
+  }
+
+  // Role mismatch
+  const userRole = auth.user?.role;
+  if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+    toast.error("Access denied: insufficient permissions.");
+    return <Navigate to="/403" replace />;
+  }
+
   return children;
 }
 
-// === App Root ===
-export default function App() {
+// =============================================================
+// 🚫 Custom Access Denied Page (403)
+// =============================================================
+function AccessDenied() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 text-center">
+      <h1 className="text-6xl font-bold text-red-600 mb-4">403</h1>
+      <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+        Access Denied
+      </h2>
+      <p className="text-gray-600 mb-6">
+        You don’t have permission to access this page.
+      </p>
+      <a
+        href="/"
+        className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+      >
+        Go Home
+      </a>
+    </div>
+  );
+}
+
+// =============================================================
+// 🌍 App Root
+// =============================================================
+function AppContent() {
+  const navigate = useNavigate();
+
+  // ✅ Auto logout if token expired
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isTokenExpired()) {
+        clearAuth();
+        toast.info("Session expired. Please log in again.");
+        navigate("/");
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [navigate]);
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
+      {/* === Global Loading Overlay === */}
+      <LoadingOverlay />
+
+      {/* === Routing === */}
       <Router>
-        <Routes>
+       <NavBar /> 
+     <Routes>
           {/* ===== Public Pages ===== */}
           <Route path="/" element={<Home />} />
           <Route path="/register/owner" element={<RegisterOwner />} />
@@ -36,11 +102,12 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/success" element={<Success />} />
-          {/* ===== Reporter Routes ===== */}
+
+          {/* ===== Protected: Reporter ===== */}
           <Route
             path="/reporter/dashboard"
             element={
-              <PrivateRoute allowedRole="reporter">
+              <PrivateRoute allowedRoles={["reporter"]}>
                 <ReporterDashboard />
               </PrivateRoute>
             }
@@ -48,37 +115,40 @@ export default function App() {
           <Route
             path="/reporter/report"
             element={
-              <PrivateRoute allowedRole="reporter">
+              <PrivateRoute allowedRoles={["reporter"]}>
                 <Report />
               </PrivateRoute>
             }
           />
 
-          {/* ===== Police Route ===== */}
+          {/* ===== Protected: Police ===== */}
           <Route
             path="/police/dashboard"
             element={
-              <PrivateRoute allowedRole="police">
+              <PrivateRoute allowedRoles={["police"]}>
                 <PoliceDashboard />
               </PrivateRoute>
             }
           />
 
-          {/* ===== Admin Route ===== */}
+          {/* ===== Protected: Admin ===== */}
           <Route
             path="/admin/dashboard"
             element={
-              <PrivateRoute allowedRole="admin">
+              <PrivateRoute allowedRoles={["admin"]}>
                 <AdminDashboard />
               </PrivateRoute>
             }
           />
 
-          {/* ===== Catch-All (Redirect) ===== */}
+          {/* ===== 403 Page ===== */}
+          <Route path="/403" element={<AccessDenied />} />
+
+          {/* ===== Catch-All ===== */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 
-        {/* ===== AI Assistant ===== */}
+        {/* ===== Global Assistant ===== */}
         <PasearchAssistant />
 
         {/* ===== Footer ===== */}
@@ -88,4 +158,11 @@ export default function App() {
       </Router>
     </div>
   );
+}
+
+// =============================================================
+// 🚀 Export Default App (Used in main.jsx)
+// =============================================================
+export default function App() {
+  return <AppContent />;
 }
