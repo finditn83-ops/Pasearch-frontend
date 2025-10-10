@@ -1,4 +1,3 @@
-// src/components/PasearchAssistant.jsx
 import { useState, useEffect, useRef } from "react";
 import {
   loadMemory,
@@ -6,15 +5,44 @@ import {
   logQuestion,
 } from "../utils/assistantMemory";
 
-// Optional OpenAI client (only used if key present)
-let OpenAIClient = null;
-if (import.meta.env.VITE_OPENAI_API_KEY) {
-  import("openai").then((mod) => {
-    OpenAIClient = new mod.default({
-      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-      dangerouslyAllowBrowser: true,
+// 🧠 Safe browser helper for AI replies (no openai import)
+async function askOpenAI(prompt, memory) {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `
+You are PasearchAI, a privacy-focused assistant that helps users recover lost devices.
+Use this stored user memory to personalize answers:
+
+${JSON.stringify(memory, null, 2)}
+
+Always follow cyber laws and never expose sensitive data.
+            `,
+          },
+          { role: "user", content: prompt },
+        ],
+      }),
     });
-  });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (err) {
+    console.error("OpenAI fetch error:", err);
+    return null;
+  }
 }
 
 export default function PasearchAssistant() {
@@ -30,16 +58,14 @@ export default function PasearchAssistant() {
   const recognitionRef = useRef(null);
   const speechActiveRef = useRef(false);
 
-  // 🌍 Mission text
+  // 🌍 Mission statement fallback
   const missionText = `
-Pasearch is an intelligent, community-driven platform that helps individuals, communities, and authorities 
-track, locate, and recover lost or stolen devices — including phones, laptops, and smart TVs.
+Pasearch is a privacy-first, community-driven platform helping individuals, communities,
+and authorities track, locate, and recover lost or stolen devices — phones, laptops, and smart TVs.
+We comply with cybersecurity and data protection laws, encrypt all data, and never sell or misuse information.
+  `;
 
-We prioritize your privacy and comply with cybersecurity and data protection laws. 
-All data is encrypted and never sold or misused — used only for lawful recovery.
-`;
-
-  // 🔊 Load available voices
+  // 🔊 Load voices
   useEffect(() => {
     const loadVoices = () => {
       const voiceList = window.speechSynthesis.getVoices();
@@ -64,7 +90,6 @@ All data is encrypted and never sold or misused — used only for lawful recover
     utter.rate = 1;
     utter.pitch = 1;
     if (selectedVoice) utter.voice = selectedVoice;
-
     setSpeaking(true);
     speechActiveRef.current = true;
     utter.onend = () => {
@@ -74,13 +99,12 @@ All data is encrypted and never sold or misused — used only for lawful recover
     window.speechSynthesis.speak(utter);
   };
 
-  // 🎤 Manual start listening only when clicked
+  // 🎤 Start listening (manual only)
   const startListening = () => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
       alert("Voice recognition not supported in this browser.");
       return;
     }
-
     window.speechSynthesis.cancel();
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
@@ -92,20 +116,17 @@ All data is encrypted and never sold or misused — used only for lawful recover
       setListening(true);
       speak("I'm listening now.");
     };
-
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       handleVoiceInput(transcript);
     };
-
     recognition.onerror = () => setListening(false);
     recognition.onend = () => setListening(false);
-
     recognitionRef.current = recognition;
     recognition.start();
   };
 
-  // 🧠 Handle voice input
+  // 🧠 Handle voice text
   const handleVoiceInput = (voiceText) => {
     setInput(voiceText);
     handleSend(null, voiceText);
@@ -125,28 +146,29 @@ All data is encrypted and never sold or misused — used only for lawful recover
     const lower = trimmed.toLowerCase();
     const keywords = ["about", "aim", "mission", "goal", "purpose", "what is pasearch", "who are you"];
 
-    // Detect name
+    // Remember user name
     if (lower.startsWith("my name is")) {
       const name = trimmed.split(" ").slice(3).join(" ");
       updateMemory("name", name);
       setMemory(loadMemory());
-      const reply = `Nice to meet you, ${name}. I'll remember your name for next time.`;
+      const reply = `Nice to meet you, ${name}. I’ll remember you for next time.`;
       setMessages((p) => [...p, { from: "bot", text: reply }]);
       speak(reply);
       return;
     }
 
-    // Detect preferred device
+    // Remember preferred device
     if (lower.includes("my device is") || lower.includes("i mostly use")) {
       const device = trimmed.split(" ").slice(-1)[0];
       updateMemory("preferredDevice", device);
       setMemory(loadMemory());
-      const reply = `Got it. I’ll remember your preferred device as ${device}.`;
+      const reply = `Got it. I'll remember your preferred device as ${device}.`;
       setMessages((p) => [...p, { from: "bot", text: reply }]);
       speak(reply);
       return;
     }
 
+    // Mission / About
     if (keywords.some((kw) => lower.includes(kw))) {
       const botReply = { from: "bot", text: missionText };
       setMessages((p) => [...p, botReply]);
@@ -154,54 +176,46 @@ All data is encrypted and never sold or misused — used only for lawful recover
       return;
     }
 
-    // If OpenAI key exists, use it
-    if (OpenAIClient) {
-      setLoading(true);
-      try {
-        const completion = await OpenAIClient.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: `
-You are PasearchAI, a privacy-focused assistant helping users recover lost devices. 
-Use the memory below to personalize your responses:
-${JSON.stringify(memory, null, 2)}
-Always comply with privacy laws.
-`,
-            },
-            { role: "user", content: trimmed },
-          ],
-        });
-        const reply = completion.choices[0].message.content;
+    // AI Response
+    setLoading(true);
+    try {
+      const reply = await askOpenAI(trimmed, memory);
+      if (reply) {
         const botReply = { from: "bot", text: reply };
         setMessages((p) => [...p, botReply]);
         speak(reply);
-      } catch {
-        const fallback = "I’m having trouble connecting right now.";
+      } else {
+        const fallback = "I'm unable to connect to AI right now.";
         setMessages((p) => [...p, { from: "bot", text: fallback }]);
         speak(fallback);
-      } finally {
-        setLoading(false);
       }
-    } else {
-      const reply = "I can help with device tracking, reporting, or privacy questions anytime.";
-      setMessages((p) => [...p, { from: "bot", text: reply }]);
-      speak(reply);
+    } catch {
+      const fallback = "Something went wrong connecting to AI.";
+      setMessages((p) => [...p, { from: "bot", text: fallback }]);
+      speak(fallback);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 🖐 Greet once
+  // 👋 Silent init (no speech on load)
   useEffect(() => {
     const introPlayed = sessionStorage.getItem("pasearch_intro_played");
     if (!introPlayed && voices.length > 0) {
-      const welcome = memory.name
-        ? `Welcome back, ${memory.name}! I’m PasearchAI, ready to help again.`
-        : "Hello! I’m PasearchAI Assistant. Ready to assist you in device recovery while keeping your data safe.";
-      speak(welcome);
       sessionStorage.setItem("pasearch_intro_played", "true");
     }
   }, [voices]);
+
+  // 🎤 Optional: gentle greeting only when chat opens
+  useEffect(() => {
+    if (open && !sessionStorage.getItem("pasearch_greeted")) {
+      const welcome = memory.name
+        ? `Welcome back, ${memory.name}. How can I assist you today?`
+        : "Hi there! I’m PasearchAI — ready to help you recover or track your device.";
+      speak(welcome);
+      sessionStorage.setItem("pasearch_greeted", "true");
+    }
+  }, [open]);
 
   return (
     <>
@@ -243,7 +257,7 @@ Always comply with privacy laws.
             </button>
           </div>
 
-          {/* Voice Selector + Mic */}
+          {/* Voice Selector */}
           {voices.length > 0 && (
             <div className="p-2 border-b bg-gray-50 text-xs flex items-center justify-between">
               <label htmlFor="voiceSelect" className="text-gray-600 mr-1">
