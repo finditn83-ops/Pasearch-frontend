@@ -30,21 +30,22 @@ export const isTokenExpired = () => {
   try {
     const auth = getAuth();
     const token = auth?.token;
+
+    // No token = expired
     if (!token) return true;
 
     const decoded = decodeToken(token);
-    if (!decoded) return false; // token not decodable, assume valid for safety
 
-    const now = Date.now() / 1000; // current time in seconds
+    // If token can't be decoded or has no exp, assume it's valid
+    if (!decoded || !decoded.exp) return false;
 
-    // If exp exists, check it — allow 10-second tolerance
-    if (decoded.exp) {
-      return decoded.exp < now - 10;
-    }
+    const now = Date.now() / 1000; // in seconds
+    const exp = decoded.exp;
 
-    // If backend didn't include exp, treat token as non-expiring
-    return false;
-  } catch {
-    return false;
+    // Add 10-second tolerance to avoid clock drift
+    return exp < now - 10;
+  } catch (error) {
+    console.warn("Token decode error:", error);
+    return false; // assume valid instead of forcing logout
   }
 };
