@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import "./index.css";
 
@@ -12,11 +13,13 @@ import { LoadingProvider } from "./context/LoadingContext.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    {/* Wrap app in LoadingProvider so all components can use useLoading() */}
-    <LoadingProvider>
-      <App />
-      {/* Global Toasts */}
-      <ToastContainer position="top-center" autoClose={3000} />
-    </LoadingProvider>
+    {/* Router context must wrap the entire app */}
+    <BrowserRouter>
+      <LoadingProvider>
+        <App />
+        {/* Global toasts available on every page */}
+        <ToastContainer position="top-center" autoClose={3000} />
+      </LoadingProvider>
+    </BrowserRouter>
   </StrictMode>
 );

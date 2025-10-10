@@ -1,6 +1,5 @@
 // src/App.jsx
-import NavBar from "./components/NavBar";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { toast } from "react-toastify";
 
@@ -8,6 +7,7 @@ import { toast } from "react-toastify";
 import { isTokenExpired, clearAuth } from "./utils/auth";
 
 // === Components ===
+import NavBar from "./components/NavBar";
 import LoadingOverlay from "./components/LoadingOverlay";
 import PasearchAssistant from "./components/PasearchAssistant";
 
@@ -36,7 +36,7 @@ function PrivateRoute({ children, allowedRoles = [] }) {
   }
 
   // Role mismatch
-  const userRole = auth.user?.role;
+  const userRole = auth.role || auth.user?.role;
   if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
     toast.error("Access denied: insufficient permissions.");
     return <Navigate to="/403" replace />;
@@ -69,7 +69,7 @@ function AccessDenied() {
 }
 
 // =============================================================
-// 🌍 App Root
+// 🌍 App Root Content
 // =============================================================
 function AppContent() {
   const navigate = useNavigate();
@@ -91,71 +91,71 @@ function AppContent() {
       {/* === Global Loading Overlay === */}
       <LoadingOverlay />
 
+      {/* === Navbar always visible === */}
+      <NavBar />
+
       {/* === Routing === */}
-      <Router>
-       <NavBar /> 
-     <Routes>
-          {/* ===== Public Pages ===== */}
-          <Route path="/" element={<Home />} />
-          <Route path="/register/owner" element={<RegisterOwner />} />
-          <Route path="/verify-otp" element={<VerifyOTP />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/success" element={<Success />} />
+      <Routes>
+        {/* ===== Public Pages ===== */}
+        <Route path="/" element={<Home />} />
+        <Route path="/register/owner" element={<RegisterOwner />} />
+        <Route path="/verify-otp" element={<VerifyOTP />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/success" element={<Success />} />
 
-          {/* ===== Protected: Reporter ===== */}
-          <Route
-            path="/reporter/dashboard"
-            element={
-              <PrivateRoute allowedRoles={["reporter"]}>
-                <ReporterDashboard />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/reporter/report"
-            element={
-              <PrivateRoute allowedRoles={["reporter"]}>
-                <Report />
-              </PrivateRoute>
-            }
-          />
+        {/* ===== Protected: Reporter ===== */}
+        <Route
+          path="/reporter/dashboard"
+          element={
+            <PrivateRoute allowedRoles={["reporter"]}>
+              <ReporterDashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/reporter/report"
+          element={
+            <PrivateRoute allowedRoles={["reporter"]}>
+              <Report />
+            </PrivateRoute>
+          }
+        />
 
-          {/* ===== Protected: Police ===== */}
-          <Route
-            path="/police/dashboard"
-            element={
-              <PrivateRoute allowedRoles={["police"]}>
-                <PoliceDashboard />
-              </PrivateRoute>
-            }
-          />
+        {/* ===== Protected: Police ===== */}
+        <Route
+          path="/police/dashboard"
+          element={
+            <PrivateRoute allowedRoles={["police"]}>
+              <PoliceDashboard />
+            </PrivateRoute>
+          }
+        />
 
-          {/* ===== Protected: Admin ===== */}
-          <Route
-            path="/admin/dashboard"
-            element={
-              <PrivateRoute allowedRoles={["admin"]}>
-                <AdminDashboard />
-              </PrivateRoute>
-            }
-          />
+        {/* ===== Protected: Admin ===== */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <PrivateRoute allowedRoles={["admin"]}>
+              <AdminDashboard />
+            </PrivateRoute>
+          }
+        />
 
-          {/* ===== 403 Page ===== */}
-          <Route path="/403" element={<AccessDenied />} />
+        {/* ===== 403 Page ===== */}
+        <Route path="/403" element={<AccessDenied />} />
 
-          {/* ===== Catch-All ===== */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        {/* ===== Catch-All ===== */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
 
-        {/* ===== Global Assistant ===== */}
-        <PasearchAssistant />
+      {/* ===== Global Assistant ===== */}
+      <PasearchAssistant />
 
-        {/* ===== Footer ===== */}
-        <footer className="text-center text-gray-500 text-sm py-4 border-t border-gray-200 mt-6">
-          © 2025 <span className="font-semibold text-blue-600">PASEARCH</span> — All rights reserved.
-        </footer>
-      </Router>
+      {/* ===== Footer ===== */}
+      <footer className="text-center text-gray-500 text-sm py-4 border-t border-gray-200 mt-6">
+        © 2025 <span className="font-semibold text-blue-600">PASEARCH</span> — All rights reserved.
+      </footer>
     </div>
   );
 }
