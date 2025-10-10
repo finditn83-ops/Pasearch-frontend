@@ -1,4 +1,3 @@
-// src/pages/Home.jsx
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
@@ -10,21 +9,23 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  // ✅ Corrected variable name
+  const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+  console.log("🔍 Using API_URL:", API_URL);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
     if (!username || !password) {
       toast.error("Please enter both username and password.");
       return;
     }
-
     setLoading(true);
     try {
-      const res = await axios.post(`${API_URL}/auth/login`, { username, password });
+      const res = await axios.post(`${API_URL}/auth/login`, {
+        username,
+        password,
+      });
       const data = res.data;
-
       toast.success("Login successful!");
       localStorage.setItem(
         "auth",
@@ -34,7 +35,6 @@ export default function Home() {
           username: data.username,
         })
       );
-
       if (data.role === "admin") navigate("/admin/dashboard");
       else if (data.role === "police") navigate("/police/dashboard");
       else navigate("/reporter/dashboard");
@@ -48,16 +48,16 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6 py-8">
       <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md">
-        {/* ====== Title ====== */}
         <h1 className="text-3xl font-bold text-center text-blue-600 mb-6">
           Welcome to Pasearch
         </h1>
 
-        {/* ====== Login Form ====== */}
         <form onSubmit={handleLogin} className="space-y-4">
           {/* Username */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">Username</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Username
+            </label>
             <input
               type="text"
               placeholder="Enter your username"
@@ -69,7 +69,9 @@ export default function Home() {
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
             <input
               type="password"
               placeholder="Enter your password"
@@ -79,7 +81,7 @@ export default function Home() {
             />
           </div>
 
-          {/* Submit Button */}
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
@@ -88,7 +90,7 @@ export default function Home() {
             {loading ? "Logging in..." : "Login"}
           </button>
 
-          {/* Forgot Password */}
+          {/* Forgot password */}
           <p className="text-center text-sm text-gray-600 mt-4">
             Forgot password?{" "}
             <Link to="/forgot-password" className="text-blue-600 hover:underline">
@@ -96,7 +98,7 @@ export default function Home() {
             </Link>
           </p>
 
-          {/* Register Link */}
+          {/* Register link */}
           <p className="text-center text-sm text-gray-600 mt-2">
             Don’t have an account?{" "}
             <Link to="/register/owner" className="text-blue-600 hover:underline">
