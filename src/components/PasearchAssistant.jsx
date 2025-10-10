@@ -2,12 +2,11 @@
 import { useState, useEffect, useRef } from "react";
 import {
   loadMemory,
-  saveMemory,
   updateMemory,
   logQuestion,
 } from "../utils/assistantMemory";
 
-// Optional OpenAI client
+// Optional OpenAI client (only used if key present)
 let OpenAIClient = null;
 if (import.meta.env.VITE_OPENAI_API_KEY) {
   import("openai").then((mod) => {
@@ -19,6 +18,7 @@ if (import.meta.env.VITE_OPENAI_API_KEY) {
 }
 
 export default function PasearchAssistant() {
+  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,16 +30,13 @@ export default function PasearchAssistant() {
   const recognitionRef = useRef(null);
   const speechActiveRef = useRef(false);
 
-  // 🌍 Mission text fallback
+  // 🌍 Mission text
   const missionText = `
-Pasearch is an intelligent, community-driven platform dedicated to helping individuals, communities, and authorities
+Pasearch is an intelligent, community-driven platform that helps individuals, communities, and authorities 
 track, locate, and recover lost or stolen devices — including phones, laptops, and smart TVs.
 
-Our mission is to reduce theft by connecting users, police, and telecom partners while respecting user privacy
-and complying with cybersecurity and data protection laws.
-
-We never sell or misuse user data. All collected information (IMEI, device details, and location)
-is encrypted and used solely for lawful recovery purposes in line with global cyber regulations.
+We prioritize your privacy and comply with cybersecurity and data protection laws. 
+All data is encrypted and never sold or misused — used only for lawful recovery.
 `;
 
   // 🔊 Load available voices
@@ -62,24 +59,22 @@ is encrypted and used solely for lawful recovery purposes in line with global cy
   // 🗣️ Speak helper
   const speak = (text) => {
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-US";
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    if (selectedVoice) utterance.voice = selectedVoice;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    utter.rate = 1;
+    utter.pitch = 1;
+    if (selectedVoice) utter.voice = selectedVoice;
 
     setSpeaking(true);
     speechActiveRef.current = true;
-
-    utterance.onend = () => {
+    utter.onend = () => {
       setSpeaking(false);
       speechActiveRef.current = false;
     };
-
-    window.speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(utter);
   };
 
-  // 🎤 Start listening (mic)
+  // 🎤 Manual start listening only when clicked
   const startListening = () => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
       alert("Voice recognition not supported in this browser.");
@@ -95,7 +90,7 @@ is encrypted and used solely for lawful recovery purposes in line with global cy
 
     recognition.onstart = () => {
       setListening(true);
-      speak("Hi, I am PasearchAI Assistant. How can I help you today?");
+      speak("I'm listening now.");
     };
 
     recognition.onresult = (event) => {
@@ -103,57 +98,20 @@ is encrypted and used solely for lawful recovery purposes in line with global cy
       handleVoiceInput(transcript);
     };
 
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      setListening(false);
-    };
-
+    recognition.onerror = () => setListening(false);
     recognition.onend = () => setListening(false);
+
     recognitionRef.current = recognition;
     recognition.start();
   };
 
-  // 🎧 Auto interrupt
-  useEffect(() => {
-    if (!navigator.mediaDevices?.getUserMedia) return;
-    let audioContext, analyser, mic, dataArray;
-
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream) => {
-        audioContext = new AudioContext();
-        mic = audioContext.createMediaStreamSource(stream);
-        analyser = audioContext.createAnalyser();
-        mic.connect(analyser);
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-        const detectSpeech = () => {
-          analyser.getByteFrequencyData(dataArray);
-          const volume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-          if (volume > 60 && speechActiveRef.current) {
-            window.speechSynthesis.cancel();
-            setSpeaking(false);
-            speechActiveRef.current = false;
-          }
-          requestAnimationFrame(detectSpeech);
-        };
-        detectSpeech();
-      })
-      .catch((err) => console.error("Microphone access denied:", err));
-
-    return () => {
-      if (audioContext) audioContext.close();
-    };
-  }, []);
-
   // 🧠 Handle voice input
   const handleVoiceInput = (voiceText) => {
-    window.speechSynthesis.cancel();
     setInput(voiceText);
     handleSend(null, voiceText);
   };
 
-  // 🚀 Handle send
+  // 🚀 Handle send (typed or voice)
   const handleSend = async (e, manualInput = null) => {
     if (e) e.preventDefault();
     const trimmed = (manualInput || input).trim();
@@ -167,36 +125,36 @@ is encrypted and used solely for lawful recovery purposes in line with global cy
     const lower = trimmed.toLowerCase();
     const keywords = ["about", "aim", "mission", "goal", "purpose", "what is pasearch", "who are you"];
 
-    // Detect and store user name
+    // Detect name
     if (lower.startsWith("my name is")) {
       const name = trimmed.split(" ").slice(3).join(" ");
       updateMemory("name", name);
       setMemory(loadMemory());
-      const reply = `Nice to meet you, ${name}. I'll remember your name for future conversations.`;
-      setMessages((prev) => [...prev, { from: "bot", text: reply }]);
+      const reply = `Nice to meet you, ${name}. I'll remember your name for next time.`;
+      setMessages((p) => [...p, { from: "bot", text: reply }]);
       speak(reply);
       return;
     }
 
     // Detect preferred device
     if (lower.includes("my device is") || lower.includes("i mostly use")) {
-      const preferred = trimmed.split(" ").slice(-1)[0];
-      updateMemory("preferredDevice", preferred);
+      const device = trimmed.split(" ").slice(-1)[0];
+      updateMemory("preferredDevice", device);
       setMemory(loadMemory());
-      const reply = `Got it. I’ll remember your preferred device as ${preferred}.`;
-      setMessages((prev) => [...prev, { from: "bot", text: reply }]);
+      const reply = `Got it. I’ll remember your preferred device as ${device}.`;
+      setMessages((p) => [...p, { from: "bot", text: reply }]);
       speak(reply);
       return;
     }
 
     if (keywords.some((kw) => lower.includes(kw))) {
       const botReply = { from: "bot", text: missionText };
-      setMessages((prev) => [...prev, botReply]);
+      setMessages((p) => [...p, botReply]);
       speak(missionText);
       return;
     }
 
-    // Use OpenAI if available
+    // If OpenAI key exists, use it
     if (OpenAIClient) {
       setLoading(true);
       try {
@@ -206,13 +164,10 @@ is encrypted and used solely for lawful recovery purposes in line with global cy
             {
               role: "system",
               content: `
-You are PasearchAI, a privacy-focused assistant helping users track and recover devices.
-Use this stored memory to personalize responses:
-
+You are PasearchAI, a privacy-focused assistant helping users recover lost devices. 
+Use the memory below to personalize your responses:
 ${JSON.stringify(memory, null, 2)}
-
-Always comply with privacy laws and never expose sensitive data.
-If user identity is known, greet them by name.
+Always comply with privacy laws.
 `,
             },
             { role: "user", content: trimmed },
@@ -220,150 +175,144 @@ If user identity is known, greet them by name.
         });
         const reply = completion.choices[0].message.content;
         const botReply = { from: "bot", text: reply };
-        setMessages((prev) => [...prev, botReply]);
+        setMessages((p) => [...p, botReply]);
         speak(reply);
-      } catch (error) {
-        console.error("AI error:", error);
-        const fallback = "I'm having trouble connecting to the AI server right now.";
-        setMessages((prev) => [...prev, { from: "bot", text: fallback }]);
+      } catch {
+        const fallback = "I’m having trouble connecting right now.";
+        setMessages((p) => [...p, { from: "bot", text: fallback }]);
         speak(fallback);
       } finally {
         setLoading(false);
       }
     } else {
-      const botReply = {
-        from: "bot",
-        text: "I can help you with device tracking, recovery reports, or privacy questions. You can speak or type to me anytime.",
-      };
-      setMessages((prev) => [...prev, botReply]);
-      speak(botReply.text);
+      const reply = "I can help with device tracking, reporting, or privacy questions anytime.";
+      setMessages((p) => [...p, { from: "bot", text: reply }]);
+      speak(reply);
     }
   };
 
-  // 🖥️ Auto greeting (personalized)
+  // 🖐 Greet once
   useEffect(() => {
     const introPlayed = sessionStorage.getItem("pasearch_intro_played");
     if (!introPlayed && voices.length > 0) {
       const welcome = memory.name
-        ? `Welcome back, ${memory.name}! I’m PasearchAI, ready to assist you again.`
-        : "Hello, I’m PasearchAI Assistant. I help you track and recover lost or stolen devices while keeping your data secure and private.";
+        ? `Welcome back, ${memory.name}! I’m PasearchAI, ready to help again.`
+        : "Hello! I’m PasearchAI Assistant. Ready to assist you in device recovery while keeping your data safe.";
       speak(welcome);
       sessionStorage.setItem("pasearch_intro_played", "true");
     }
   }, [voices]);
 
-  // 🖥️ UI
   return (
-    <div className="fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
-      {/* Header */}
-      <div className="p-3 bg-blue-600 text-white text-center font-semibold rounded-t-xl flex justify-between items-center">
-        <span className="flex items-center gap-2">
-          <div
-            className={`w-4 h-4 rounded-full ${
-              listening
-                ? "bg-red-500 animate-ping"
-                : speaking
-                ? "bg-blue-400 animate-pulse"
-                : "bg-gray-300"
-            }`}
-          ></div>
-          PasearchAI Assistant 🤖
-        </span>
+    <>
+      {/* Floating Chat Icon */}
+      {!open && (
         <button
-          onClick={startListening}
-          className={`ml-2 px-2 py-1 text-xs rounded ${
-            listening ? "bg-red-500" : "bg-white text-blue-600"
-          }`}
+          onClick={() => setOpen(true)}
+          className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition transform hover:scale-110 z-50"
+          title="Open PasearchAI Assistant"
         >
-          {listening ? "Listening..." : "🎤"}
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8-1.59 0-3.07-.37-4.36-1.03L3 20l1.5-3.64C3.52 15.13 3 13.61 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
         </button>
-      </div>
-
-      {/* Voice Selector */}
-      {voices.length > 0 && (
-        <div className="p-2 border-b bg-gray-50 text-xs text-gray-700 flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="voiceSelect" className="mr-2 font-medium text-gray-600">
-              Voice:
-            </label>
-            <select
-              id="voiceSelect"
-              value={selectedVoice?.name || ""}
-              onChange={(e) => {
-                const v = voices.find((voice) => voice.name === e.target.value);
-                setSelectedVoice(v);
-              }}
-              className="flex-1 text-xs border rounded px-1 py-1 bg-white"
-            >
-              {voices.map((v, i) => (
-                <option key={i} value={v.name}>
-                  {v.name.replace("Google", "").replace("Microsoft", "").trim()}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            onClick={() =>
-              speak(
-                "Hello, I’m PasearchAI Assistant. I help you track and recover lost or stolen devices while protecting your privacy."
-              )
-            }
-            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded w-full text-center transition"
-          >
-            ▶️ Play Introduction
-          </button>
-
-          {/* Forget Memory */}
-          <button
-            onClick={() => {
-              localStorage.removeItem("pasearch_ai_memory");
-              setMemory({ name: null, preferredDevice: null, previousQuestions: [] });
-              alert("Your AI memory has been cleared.");
-            }}
-            className="text-xs text-red-600 underline mt-1"
-          >
-            🧹 Forget My Data
-          </button>
-        </div>
       )}
 
       {/* Chat Window */}
-      <div className="h-64 overflow-y-auto p-3 space-y-2">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`p-2 rounded-lg text-sm ${
-              msg.from === "user"
-                ? "bg-blue-100 text-gray-800 text-right"
-                : "bg-gray-100 text-gray-800 text-left"
-            }`}
-          >
-            {msg.text}
+      {open && (
+        <div className="fixed bottom-6 right-6 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 flex flex-col">
+          {/* Header */}
+          <div className="p-3 bg-blue-600 text-white flex justify-between items-center rounded-t-xl">
+            <span className="flex items-center gap-2">
+              <div
+                className={`w-3 h-3 rounded-full ${
+                  listening
+                    ? "bg-red-500 animate-ping"
+                    : speaking
+                    ? "bg-blue-400 animate-pulse"
+                    : "bg-gray-300"
+                }`}
+              ></div>
+              <span className="font-semibold">PasearchAI</span>
+            </span>
+            <button
+              onClick={() => setOpen(false)}
+              className="text-white text-sm bg-blue-700 hover:bg-blue-800 px-2 py-1 rounded"
+            >
+              ✕
+            </button>
           </div>
-        ))}
-        {loading && (
-          <div className="p-2 text-gray-500 text-sm italic text-center">
-            Thinking...
-          </div>
-        )}
-      </div>
 
-      {/* Input */}
-      <form onSubmit={handleSend} className="flex border-t">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask or speak..."
-          className="flex-1 px-2 py-2 text-sm focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="bg-blue-600 text-white px-3 text-sm rounded-r-lg hover:bg-blue-700"
-        >
-          Send
-        </button>
-      </form>
-    </div>
+          {/* Voice Selector + Mic */}
+          {voices.length > 0 && (
+            <div className="p-2 border-b bg-gray-50 text-xs flex items-center justify-between">
+              <label htmlFor="voiceSelect" className="text-gray-600 mr-1">
+                Voice:
+              </label>
+              <select
+                id="voiceSelect"
+                value={selectedVoice?.name || ""}
+                onChange={(e) => {
+                  const v = voices.find((voice) => voice.name === e.target.value);
+                  setSelectedVoice(v);
+                }}
+                className="flex-1 text-xs border rounded px-1 py-1 bg-white"
+              >
+                {voices.map((v, i) => (
+                  <option key={i} value={v.name}>
+                    {v.name.replace("Google", "").replace("Microsoft", "").trim()}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={startListening}
+                className={`ml-2 px-2 py-1 text-xs rounded ${
+                  listening ? "bg-red-500 text-white" : "bg-blue-600 text-white"
+                }`}
+              >
+                🎤
+              </button>
+            </div>
+          )}
+
+          {/* Messages */}
+          <div className="flex-1 h-64 overflow-y-auto p-3 space-y-2">
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`p-2 rounded-lg text-sm ${
+                  msg.from === "user"
+                    ? "bg-blue-100 text-right text-gray-800"
+                    : "bg-gray-100 text-left text-gray-800"
+                }`}
+              >
+                {msg.text}
+              </div>
+            ))}
+            {loading && (
+              <div className="p-2 text-gray-500 text-sm italic text-center">
+                Thinking...
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <form onSubmit={handleSend} className="flex border-t">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask or speak..."
+              className="flex-1 px-2 py-2 text-sm focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-3 text-sm rounded-r-lg hover:bg-blue-700"
+            >
+              Send
+            </button>
+          </form>
+        </div>
+      )}
+    </>
   );
 }
