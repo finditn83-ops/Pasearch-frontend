@@ -161,3 +161,7 @@ export const pingBackend = async () => {
 
 // Default export (for custom axios calls)
 export default API;
+// Alias for owner registration
+export const registerOwner = async (username, email, phone, password) => {
+  return register(username, email, phone, password, "reporter");
+};

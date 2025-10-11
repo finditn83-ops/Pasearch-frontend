@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useLoading } from "../context/LoadingContext";
-import { registerOwner } from "../api";
+import { register } from "../api";
 
 export default function RegisterOwner() {
   const [ownerName, setOwnerName] = useState("");
@@ -22,7 +22,7 @@ export default function RegisterOwner() {
 
     try {
       setLoading(true);
-      await registerOwner(ownerName, email, phone, password);
+      await register(username, email, phone, password, "reporter");
       toast.success("Owner account created successfully!");
       navigate("/");
     } catch (err) {
