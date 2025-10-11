@@ -3,7 +3,7 @@
 // =============================================================
 import axios from "axios";
 import { toast } from "react-toastify";
-import { clearAuth } from "./utils/auth"; // ✅ keep this relative import since auth.js is inside /utils
+import { clearAuth } from "./utils/auth"; // ✅ keep this relative import
 
 // ✅ Base URL (auto-detects environment)
 const API = axios.create({
@@ -18,9 +18,7 @@ const API = axios.create({
 API.interceptors.request.use(
   (config) => {
     const auth = JSON.parse(localStorage.getItem("auth") || "null");
-    if (auth?.token) {
-      config.headers.Authorization = `Bearer ${auth.token}`;
-    }
+    if (auth?.token) config.headers.Authorization = `Bearer ${auth.token}`;
     return config;
   },
   (error) => Promise.reject(error)
@@ -33,7 +31,6 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-
     if (status === 401) {
       toast.error("Session expired. Please log in again.");
       clearAuth();
@@ -45,7 +42,6 @@ API.interceptors.response.use(
     } else if (!status) {
       toast.error("Network error. Please check your connection.");
     }
-
     return Promise.reject(error);
   }
 );
@@ -66,6 +62,11 @@ export const register = async (username, email, phone, password, role) => {
   return res.data;
 };
 
+// ✅ Alias for owner registration (optional)
+export const registerOwner = async (username, email, phone, password) => {
+  return register(username, email, phone, password, "reporter");
+};
+
 // Login existing user
 export const login = async (email, password) => {
   const res = await API.post("/auth/login", { email, password });
@@ -75,6 +76,17 @@ export const login = async (email, password) => {
 // Forgot password (send reset link)
 export const forgotPassword = async (email) => {
   const res = await API.post("/auth/forgot-password", { email });
+  return res.data;
+};
+
+// ✅ Additions for OTP / password recovery (fix build)
+export const requestPasswordReset = async (email) => {
+  const res = await API.post("/auth/forgot-password", { email });
+  return res.data;
+};
+
+export const verifyOTP = async (email, otp) => {
+  const res = await API.post("/auth/verify-otp", { email, otp });
   return res.data;
 };
 
@@ -126,19 +138,16 @@ export const getDeviceByImei = async (imei) => {
 // 🟢 ADMIN ROUTES
 // =============================================================
 
-// Admin: Reset user password
 export const adminResetUser = async (email, new_password) => {
   const res = await API.post("/admin/reset-user", { email, new_password });
   return res.data;
 };
 
-// Admin: Get all users
 export const getAllUsers = async () => {
   const res = await API.get("/admin/users");
   return res.data;
 };
 
-// Admin: Get all devices
 export const getAllDevices = async () => {
   const res = await API.get("/admin/devices");
   return res.data;
@@ -161,7 +170,3 @@ export const pingBackend = async () => {
 
 // Default export (for custom axios calls)
 export default API;
-// Alias for owner registration
-export const registerOwner = async (username, email, phone, password) => {
-  return register(username, email, phone, password, "reporter");
-};
