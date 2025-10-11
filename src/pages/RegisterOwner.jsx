@@ -12,27 +12,39 @@ export default function RegisterOwner() {
   const { loading, setLoading } = useLoading();
   const navigate = useNavigate();
 
+  // ✅ Handle Form Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Basic validation
     if (!ownerName.trim() || !password.trim()) {
-      toast.error("Owner name and password are required.");
+      toast.error("Full name and password are required.");
+      return;
+    }
+    if (phone && !/^[0-9+\-\s()]{6,15}$/.test(phone)) {
+      toast.error("Please enter a valid phone number.");
       return;
     }
 
     try {
       setLoading(true);
-      await register(username, email, phone, password, "reporter");
+      // ✅ Use correct variable name and existing register() API
+      await register(ownerName, email, phone, password, "reporter");
       toast.success("Owner account created successfully!");
       navigate("/");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to register owner. Please try again.");
+      toast.error(
+        err.response?.data?.error || "Failed to register owner. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // ==========================================================
+  // 🖥️ UI
+  // ==========================================================
   return (
     <form
       onSubmit={handleSubmit}
