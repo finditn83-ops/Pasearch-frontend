@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useLoading } from "../context/LoadingContext";
 import { register } from "../api";
-
 export default function RegisterOwner() {
   const [ownerName, setOwnerName] = useState("");
   const [email, setEmail] = useState("");
