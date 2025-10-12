@@ -1,8 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useLoading } from "../context/LoadingContext";
-import { login } from "../api";
+import { login, isLoggedIn, getCurrentUser } from "../api";
+
+// 🚦 Role → Dashboard Route Mapping
+const ROLE_ROUTES = {
+  admin: "/admin-dashboard",
+  police: "/police-dashboard",
+  reporter: "/reporter-dashboard",
+  owner: "/reporter-dashboard", // alias if you use 'owner'
+};
 
 export default function LoginForm() {
   const [emailOrUsername, setEmailOrUsername] = useState("");
@@ -10,6 +18,16 @@ export default function LoginForm() {
   const { loading, setLoading } = useLoading();
   const navigate = useNavigate();
 
+  // 🚫 Redirect already logged-in users to their dashboard
+  useEffect(() => {
+    if (isLoggedIn()) {
+      const user = getCurrentUser();
+      const redirectPath = ROLE_ROUTES[user?.role] || "/dashboard";
+      navigate(redirectPath);
+    }
+  }, [navigate]);
+
+  // ✅ Handle Login Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -20,12 +38,23 @@ export default function LoginForm() {
 
     try {
       setLoading(true);
+      // Attempt login
       const res = await login(emailOrUsername, password);
-      toast.success("Login successful!");
-      navigate("/dashboard");
+      toast.success(res?.message || "Login successful!");
+
+      // ✅ Fetch user info (from login response or localStorage)
+      const user = res?.user || JSON.parse(localStorage.getItem("auth"))?.user;
+
+      // ✅ Role-based redirect
+      const redirectPath = ROLE_ROUTES[user?.role] || "/dashboard";
+      navigate(redirectPath);
     } catch (err) {
-      console.error(err);
-      toast.error("Invalid credentials or network error.");
+      console.error("Login error:", err);
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Invalid credentials or network error.";
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -82,7 +111,7 @@ export default function LoginForm() {
         />
       </div>
 
-      {/* Remember Me */}
+      {/* Remember Me + Forgot Password */}
       <div className="flex items-center justify-between mt-3">
         <label className="flex items-center text-sm text-gray-700">
           <input
@@ -113,7 +142,7 @@ export default function LoginForm() {
       {/* Register Link */}
       <div className="text-center mt-4">
         <span className="text-sm text-gray-600">
-          Don't have an account?{" "}
+          Don’t have an account?{" "}
           <Link
             to="/register"
             className="text-blue-600 hover:underline font-medium"

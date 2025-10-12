@@ -2,19 +2,23 @@ import { Navigate, Outlet } from "react-router-dom";
 import { toast } from "react-toastify";
 
 export default function ProtectedRoute({ allowedRoles }) {
-  const auth = JSON.parse(localStorage.getItem("auth"));
+  const auth = JSON.parse(localStorage.getItem("auth") || "null");
 
+  // ⛔ No auth or missing token
   if (!auth || !auth.token) {
     toast.error("Session expired. Please log in again.");
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  // If specific roles are required, enforce them
-  if (allowedRoles && !allowedRoles.includes(auth.role)) {
+  // ✅ Extract role safely
+  const userRole = auth.user?.role;
+
+  // 🔐 Role-based access control
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
     toast.error("Unauthorized access.");
-    return <Navigate to="/" replace />;
+    return <Navigate to="/unauthorized" replace />;
   }
 
-  // ✅ Allow access if authenticated (and role matches)
+  // ✅ Authenticated + Role allowed → grant access
   return <Outlet />;
 }
