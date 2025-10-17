@@ -25,23 +25,35 @@ API.interceptors.request.use(
 );
 
 // =============================================================
-// ⚠️ Response Interceptor — Global Error Handling
+// ⚠️ Response Interceptor — Global Error Handling (Fixed)
 // =============================================================
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    const status = error.response?.status;
-    if (status === 401) {
-      toast.error("Session expired. Please log in again.");
+    // Detect network/CORS errors
+    if (!error.response) {
+      toast.error("⚠️ Offline Mode — Unable to reach backend server.");
+      // Optionally trigger retry logic or silent fail here
+      return Promise.reject(error);
+    }
+
+    const status = error.response.status;
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      "Unexpected error";
+
+    // Token expired (only log out on real expiration)
+    if (status === 401 && /token/i.test(message) && /expired/i.test(message)) {
+      toast.warn("Session expired. Please log in again.");
       clearAuth();
-      setTimeout(() => (window.location.href = "/"), 1500);
+      setTimeout(() => (window.location.href = "/login"), 1200);
     } else if (status === 403) {
       toast.error("Access denied: insufficient permissions.");
     } else if (status >= 500) {
       toast.error("Server error. Please try again later.");
-    } else if (!status) {
-      toast.error("Network error. Please check your connection.");
     }
+
     return Promise.reject(error);
   }
 );
@@ -98,13 +110,14 @@ export const logout = () => {
   window.location.href = "/";
 };
 
-// Forgot password
+// =============================================================
+// 🧭 PASSWORD / OTP ROUTES
+// =============================================================
 export const forgotPassword = async (email) => {
   const res = await API.post("/auth/forgot-password", { email });
   return res.data;
 };
 
-// OTP / password recovery
 export const requestPasswordReset = async (email) => {
   const res = await API.post("/auth/forgot-password", { email });
   return res.data;
@@ -115,13 +128,11 @@ export const verifyOTP = async (email, otp) => {
   return res.data;
 };
 
-// Reset password (from email link)
 export const resetPassword = async (token, newPassword) => {
   const res = await API.post("/auth/reset-password", { token, newPassword });
   return res.data;
 };
 
-// Update password (for logged-in user)
 export const updatePassword = async (email, currentPassword, newPassword) => {
   const res = await API.post("/auth/update-password", {
     email,
@@ -131,7 +142,6 @@ export const updatePassword = async (email, currentPassword, newPassword) => {
   return res.data;
 };
 
-// Update email
 export const updateEmail = async (oldEmail, newEmail, password) => {
   const res = await API.post("/auth/update-email", {
     oldEmail,
@@ -142,10 +152,8 @@ export const updateEmail = async (oldEmail, newEmail, password) => {
 };
 
 // =============================================================
-// 🧭 AUTH UTILITIES (New!)
+// 🧭 AUTH UTILITIES
 // =============================================================
-
-// ✅ Get current logged-in user info
 export const getCurrentUser = () => {
   try {
     const auth = JSON.parse(localStorage.getItem("auth") || "null");
@@ -155,13 +163,11 @@ export const getCurrentUser = () => {
   }
 };
 
-// ✅ Check if user is logged in
 export const isLoggedIn = () => {
   const auth = JSON.parse(localStorage.getItem("auth") || "null");
   return !!auth?.token;
 };
 
-// ✅ Get raw JWT token
 export const getAuthToken = () => {
   const auth = JSON.parse(localStorage.getItem("auth") || "null");
   return auth?.token || null;
@@ -170,7 +176,6 @@ export const getAuthToken = () => {
 // =============================================================
 // 🟢 DEVICE ROUTES
 // =============================================================
-
 export const reportDevice = async (formData) => {
   if (!(formData instanceof FormData)) {
     throw new Error("Expected FormData for reportDevice()");
@@ -181,7 +186,6 @@ export const reportDevice = async (formData) => {
   return res.data;
 };
 
-// Get device by IMEI
 export const getDeviceByImei = async (imei) => {
   const res = await API.get(`/device/${imei}`);
   return res.data;
@@ -208,10 +212,9 @@ export const getAllDevices = async () => {
 // =============================================================
 // 🧩 UTILITIES
 // =============================================================
-
 export const pingBackend = async () => {
   try {
-    const res = await API.get("/healthz");
+    const res = await API.get("/api/health"); // ✅ fixed path
     return res.data;
   } catch (err) {
     console.error("Backend ping failed:", err.message);
