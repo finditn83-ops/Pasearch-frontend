@@ -1,179 +1,253 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useEffect, useState } from "react";
+import {
+  getAllDevices,
+  updateDeviceStatus,
+  getAllUsers,
+  getAdminMetrics,
+  getRecentActivity,
+} from "../api";
 import { toast } from "react-toastify";
-import LogoutButton from "../components/LogoutButton";
-import { useNavigate } from "react-router-dom";
 
 export default function AdminDashboard() {
-  const [users, setUsers] = useState([]);
   const [devices, setDevices] = useState([]);
-  const [tab, setTab] = useState("users");
+  const [users, setUsers] = useState([]);
+  const [metrics, setMetrics] = useState({});
+  const [activity, setActivity] = useState({});
   const [loading, setLoading] = useState(true);
-  const [adminName, setAdminName] = useState("");
-  const navigate = useNavigate();
-
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  const [view, setView] = useState("overview");
 
   useEffect(() => {
-    const auth = JSON.parse(localStorage.getItem("auth"));
-    if (!auth || auth.role !== "admin") {
-      toast.error("Unauthorized access");
-      navigate("/");
-      return;
-    }
-    setAdminName(auth.username || "Admin");
-
     const fetchData = async () => {
       try {
-        const headers = { Authorization: `Bearer ${auth.token}` };
-        const [usersRes, devicesRes] = await Promise.all([
-          axios.get(`${API_URL}/admin/users`, { headers }),
-          axios.get(`${API_URL}/admin/devices`, { headers }),
+        const [devRes, userRes, metricsRes, activityRes] = await Promise.all([
+          getAllDevices(),
+          getAllUsers(),
+          getAdminMetrics(),
+          getRecentActivity(),
         ]);
-        setUsers(usersRes.data.users || []);
-        setDevices(devicesRes.data.devices || []);
+        setDevices(devRes.devices || []);
+        setUsers(userRes.users || []);
+        setMetrics(metricsRes || {});
+        setActivity(activityRes || {});
       } catch (err) {
-        console.error("Failed to load admin data:", err);
-        toast.error("Error loading data. Please check your server connection.");
+        toast.error("Failed to load admin data.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
-  }, [API_URL, navigate]);
+  }, []);
+
+  const handleStatus = async (id, status) => {
+    try {
+      await updateDeviceStatus(id, status);
+      toast.success(`Device marked as ${status}`);
+      setDevices((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, status } : d))
+      );
+      const [newMetrics, newActivity] = await Promise.all([
+        getAdminMetrics(),
+        getRecentActivity(),
+      ]);
+      setMetrics(newMetrics);
+      setActivity(newActivity);
+    } catch {
+      toast.error("Failed to update device status.");
+    }
+  };
+
+  if (loading) return <p className="p-4 text-gray-600">Loading...</p>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 flex flex-col">
-      {/* ===== Header ===== */}
-      <div className="flex justify-between items-center mb-6 bg-white shadow-sm p-4 rounded-lg">
-        <h1 className="text-2xl font-bold text-blue-600">
-          Admin Dashboard
-        </h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-700">
-            Welcome, <span className="font-semibold">{adminName}</span>
-          </span>
-          <LogoutButton />
-        </div>
+    <div className="p-4">
+      <h1 className="text-xl font-bold mb-4 text-blue-600">Admin Dashboard</h1>
+
+      {/* Dashboard metrics cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <MetricCard title="Total Users" value={metrics.total_users} color="bg-blue-500" />
+        <MetricCard title="Devices Reported" value={metrics.total_devices} color="bg-purple-500" />
+        <MetricCard title="Recovered Devices" value={metrics.recovered} color="bg-green-500" />
+        <MetricCard title="Under Investigation" value={metrics.investigating} color="bg-yellow-500" />
       </div>
 
-      {/* ===== Tabs ===== */}
+      {/* Tabs */}
       <div className="flex gap-2 mb-4">
         <button
-          onClick={() => setTab("users")}
-          className={`px-4 py-2 rounded-lg font-medium transition ${
-            tab === "users"
-              ? "bg-blue-600 text-white shadow-md"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          onClick={() => setView("overview")}
+          className={`px-4 py-2 rounded ${
+            view === "overview" ? "bg-blue-600 text-white" : "bg-gray-200"
           }`}
         >
-          👥 Users
+          Overview
         </button>
         <button
-          onClick={() => setTab("devices")}
-          className={`px-4 py-2 rounded-lg font-medium transition ${
-            tab === "devices"
-              ? "bg-blue-600 text-white shadow-md"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          onClick={() => setView("devices")}
+          className={`px-4 py-2 rounded ${
+            view === "devices" ? "bg-blue-600 text-white" : "bg-gray-200"
           }`}
         >
-          📱 Devices
+          Devices
+        </button>
+        <button
+          onClick={() => setView("users")}
+          className={`px-4 py-2 rounded ${
+            view === "users" ? "bg-blue-600 text-white" : "bg-gray-200"
+          }`}
+        >
+          Users
+        </button>
+        <button
+          onClick={() => setView("activity")}
+          className={`px-4 py-2 rounded ${
+            view === "activity" ? "bg-blue-600 text-white" : "bg-gray-200"
+          }`}
+        >
+          Recent Activity
         </button>
       </div>
 
-      {/* ===== Content ===== */}
-      {loading ? (
-        <p className="text-center text-gray-500">Loading data...</p>
-      ) : tab === "users" ? (
-        // === Users Table ===
-        <div className="overflow-x-auto shadow-lg rounded-lg border border-gray-200 bg-white">
-          <table className="min-w-full border-collapse text-sm">
-            <thead className="bg-blue-100 text-gray-700">
-              <tr>
-                <th className="py-2 px-4 text-left border-b">ID</th>
-                <th className="py-2 px-4 text-left border-b">Username</th>
-                <th className="py-2 px-4 text-left border-b">Email</th>
-                <th className="py-2 px-4 text-left border-b">Role</th>
-                <th className="py-2 px-4 text-left border-b">Created At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="text-center py-4 text-gray-500">
-                    No users found
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => (
-                  <tr
-                    key={u.id}
-                    className="hover:bg-gray-50 transition border-b last:border-b-0"
-                  >
-                    <td className="py-2 px-4">{u.id}</td>
-                    <td className="py-2 px-4">{u.username}</td>
-                    <td className="py-2 px-4">{u.email}</td>
-                    <td className="py-2 px-4 capitalize">{u.role}</td>
-                    <td className="py-2 px-4">{u.created_at}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        // === Devices Table ===
-        <div className="overflow-x-auto shadow-lg rounded-lg border border-gray-200 bg-white">
-          <table className="min-w-full border-collapse text-sm">
-            <thead className="bg-green-100 text-gray-700">
-              <tr>
-                <th className="py-2 px-4 text-left border-b">ID</th>
-                <th className="py-2 px-4 text-left border-b">Reporter</th>
-                <th className="py-2 px-4 text-left border-b">Category</th>
-                <th className="py-2 px-4 text-left border-b">Type</th>
-                <th className="py-2 px-4 text-left border-b">IMEI</th>
-                <th className="py-2 px-4 text-left border-b">Color</th>
-                <th className="py-2 px-4 text-left border-b">Location</th>
-                <th className="py-2 px-4 text-left border-b">Lost Type</th>
-                <th className="py-2 px-4 text-left border-b">Reported At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {devices.length === 0 ? (
-                <tr>
-                  <td colSpan="9" className="text-center py-4 text-gray-500">
-                    No devices reported yet
-                  </td>
-                </tr>
-              ) : (
-                devices.map((d) => (
-                  <tr
-                    key={d.id}
-                    className="hover:bg-gray-50 transition border-b last:border-b-0"
-                  >
-                    <td className="py-2 px-4">{d.id}</td>
-                    <td className="py-2 px-4">
-                      {d.reporter}
-                      <br />
-                      <span className="text-xs text-gray-500">
-                        {d.reporter_email}
-                      </span>
-                    </td>
-                    <td className="py-2 px-4">{d.device_category}</td>
-                    <td className="py-2 px-4">{d.device_type}</td>
-                    <td className="py-2 px-4">{d.imei}</td>
-                    <td className="py-2 px-4">{d.color}</td>
-                    <td className="py-2 px-4">{d.location_area}</td>
-                    <td className="py-2 px-4 capitalize">{d.lost_type}</td>
-                    <td className="py-2 px-4">{d.created_at}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      {view === "devices" && (
+        <DeviceTable devices={devices} onStatus={handleStatus} />
       )}
+      {view === "users" && <UserTable users={users} />}
+      {view === "activity" && <RecentActivity activity={activity} />}
+      {view === "overview" && (
+        <p className="text-gray-600">
+          Welcome, Admin! Use the tabs to manage users, view reports, or check system activity.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ✅ Metric card component
+function MetricCard({ title, value, color }) {
+  return (
+    <div className={`rounded-lg shadow-md p-4 text-white ${color}`}>
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="text-2xl font-bold mt-2">{value ?? 0}</p>
+    </div>
+  );
+}
+
+// ✅ Device table
+function DeviceTable({ devices, onStatus }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full border text-sm">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="p-2 border">IMEI</th>
+            <th className="p-2 border">Type</th>
+            <th className="p-2 border">Reporter</th>
+            <th className="p-2 border">Status</th>
+            <th className="p-2 border">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {devices.map((d) => (
+            <tr key={d.id}>
+              <td className="p-2 border">{d.imei}</td>
+              <td className="p-2 border">{d.device_type}</td>
+              <td className="p-2 border">{d.email}</td>
+              <td className="p-2 border">{d.status}</td>
+              <td className="p-2 border">
+                <button
+                  onClick={() => onStatus(d.id, "investigating")}
+                  className="px-2 py-1 text-xs bg-yellow-400 rounded mr-1"
+                >
+                  Investigating
+                </button>
+                <button
+                  onClick={() => onStatus(d.id, "recovered")}
+                  className="px-2 py-1 text-xs bg-green-500 text-white rounded"
+                >
+                  Recovered
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ✅ Users table
+function UserTable({ users }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full border text-sm">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="p-2 border">Username</th>
+            <th className="p-2 border">Email</th>
+            <th className="p-2 border">Role</th>
+            <th className="p-2 border">Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((u) => (
+            <tr key={u.id}>
+              <td className="p-2 border">{u.username}</td>
+              <td className="p-2 border">{u.email}</td>
+              <td className="p-2 border">{u.role}</td>
+              <td className="p-2 border">
+                {new Date(u.created_at).toLocaleDateString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ✅ Recent activity feed
+function RecentActivity({ activity }) {
+  const logs = activity.system_logs || [];
+  const devices = activity.device_reports || [];
+
+  return (
+    <div className="grid md:grid-cols-2 gap-4">
+      <div className="bg-white rounded shadow p-4">
+        <h2 className="font-bold text-blue-600 mb-2">🕒 System Activity</h2>
+        <ul className="text-sm space-y-1 max-h-80 overflow-y-auto">
+          {logs.length > 0 ? (
+            logs.map((log, i) => (
+              <li key={i} className="border-b pb-1">
+                <b>{log.username}</b> — {log.action}
+                <br />
+                <span className="text-gray-500 text-xs">
+                  {new Date(log.timestamp).toLocaleString()}
+                </span>
+              </li>
+            ))
+          ) : (
+            <p className="text-gray-500">No recent system logs.</p>
+          )}
+        </ul>
+      </div>
+
+      <div className="bg-white rounded shadow p-4">
+        <h2 className="font-bold text-purple-600 mb-2">📱 Recent Device Reports</h2>
+        <ul className="text-sm space-y-1 max-h-80 overflow-y-auto">
+          {devices.length > 0 ? (
+            devices.map((d, i) => (
+              <li key={i} className="border-b pb-1">
+                <b>{d.device_type}</b> — IMEI: {d.imei}
+                <br />
+                <span className="text-gray-500 text-xs">
+                  Status: {d.status || "pending"} |{" "}
+                  {new Date(d.created_at).toLocaleString()}
+                </span>
+              </li>
+            ))
+          ) : (
+            <p className="text-gray-500">No recent reports.</p>
+          )}
+        </ul>
+      </div>
     </div>
   );
 }

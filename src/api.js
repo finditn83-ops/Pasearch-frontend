@@ -1,5 +1,5 @@
 // =============================================================
-// 🌐 Centralized Axios API Configuration (Root-level)
+// 🌐 Centralized Axios API Configuration
 // =============================================================
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -25,35 +25,23 @@ API.interceptors.request.use(
 );
 
 // =============================================================
-// ⚠️ Response Interceptor — Global Error Handling (Fixed)
+// ⚠️ Response Interceptor — Global Error Handling
 // =============================================================
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Detect network/CORS errors
-    if (!error.response) {
-      toast.error("⚠️ Offline Mode — Unable to reach backend server.");
-      // Optionally trigger retry logic or silent fail here
-      return Promise.reject(error);
-    }
-
-    const status = error.response.status;
-    const message =
-      error.response?.data?.error ||
-      error.response?.data?.message ||
-      "Unexpected error";
-
-    // Token expired (only log out on real expiration)
-    if (status === 401 && /token/i.test(message) && /expired/i.test(message)) {
-      toast.warn("Session expired. Please log in again.");
+    const status = error.response?.status;
+    if (status === 401) {
+      toast.error("Session expired. Please log in again.");
       clearAuth();
-      setTimeout(() => (window.location.href = "/login"), 1200);
+      setTimeout(() => (window.location.href = "/"), 1500);
     } else if (status === 403) {
       toast.error("Access denied: insufficient permissions.");
     } else if (status >= 500) {
       toast.error("Server error. Please try again later.");
+    } else if (!status) {
+      toast.error("Network error. Please check your connection.");
     }
-
     return Promise.reject(error);
   }
 );
@@ -62,7 +50,7 @@ API.interceptors.response.use(
 // 🟢 AUTH ROUTES
 // =============================================================
 
-// Register new user
+// Register user
 export const register = async (username, email, phone, password, role) => {
   const res = await API.post("/auth/register", {
     username,
@@ -74,21 +62,19 @@ export const register = async (username, email, phone, password, role) => {
   return res.data;
 };
 
-// ✅ Alias for owner registration
+// Owner registration alias
 export const registerOwner = async (username, email, phone, password) => {
   return register(username, email, phone, password, "reporter");
 };
 
-// ✅ Login (supports email OR username + auto-store auth)
+// Login (email or username)
 export const login = async (emailOrUsername, password) => {
   const isEmail = emailOrUsername.includes("@");
   const payload = isEmail
     ? { email: emailOrUsername, password }
     : { username: emailOrUsername, password };
-
   const res = await API.post("/auth/login", payload);
 
-  // ✅ Auto-store JWT + user info in localStorage
   if (res.data?.token && res.data?.user) {
     localStorage.setItem(
       "auth",
@@ -99,26 +85,18 @@ export const login = async (emailOrUsername, password) => {
       })
     );
   }
-
   return res.data;
 };
 
-// ✅ Logout — clears token & session
+// Logout
 export const logout = () => {
   clearAuth();
   toast.info("You have been logged out.");
   window.location.href = "/";
 };
 
-// =============================================================
-// 🧭 PASSWORD / OTP ROUTES
-// =============================================================
+// Forgot / Reset Password
 export const forgotPassword = async (email) => {
-  const res = await API.post("/auth/forgot-password", { email });
-  return res.data;
-};
-
-export const requestPasswordReset = async (email) => {
   const res = await API.post("/auth/forgot-password", { email });
   return res.data;
 };
@@ -133,20 +111,12 @@ export const resetPassword = async (token, newPassword) => {
   return res.data;
 };
 
+// Update Password
 export const updatePassword = async (email, currentPassword, newPassword) => {
   const res = await API.post("/auth/update-password", {
     email,
     currentPassword,
     newPassword,
-  });
-  return res.data;
-};
-
-export const updateEmail = async (oldEmail, newEmail, password) => {
-  const res = await API.post("/auth/update-email", {
-    oldEmail,
-    newEmail,
-    password,
   });
   return res.data;
 };
@@ -174,8 +144,10 @@ export const getAuthToken = () => {
 };
 
 // =============================================================
-// 🟢 DEVICE ROUTES
+// 📱 DEVICE ROUTES
 // =============================================================
+
+// Report a lost/stolen device
 export const reportDevice = async (formData) => {
   if (!(formData instanceof FormData)) {
     throw new Error("Expected FormData for reportDevice()");
@@ -186,35 +158,91 @@ export const reportDevice = async (formData) => {
   return res.data;
 };
 
-export const getDeviceByImei = async (imei) => {
-  const res = await API.get(`/device/${imei}`);
+// Get device by IMEI
+export const getDeviceByImei = async (imei, includeHistory = false) => {
+  const url = includeHistory
+    ? `/device/${imei}?history=true`
+    : `/device/${imei}`;
+  const res = await API.get(url);
   return res.data;
 };
 
 // =============================================================
-// 🟢 ADMIN ROUTES
+// 🧩 TRACKING ROUTES
 // =============================================================
-export const adminResetUser = async (email, newPassword) => {
-  const res = await API.post("/admin/reset-user", { email, newPassword });
+export const trackDevice = async (imei, latitude, longitude, address, trackerName) => {
+  const res = await API.post("/track-device", {
+    imei,
+    latitude,
+    longitude,
+    address,
+    trackerName,
+  });
   return res.data;
 };
 
+// =============================================================
+// 🧰 ADMIN ROUTES
+// =============================================================
+
+// Get all users
 export const getAllUsers = async () => {
   const res = await API.get("/admin/users");
   return res.data;
 };
 
+// Get all devices
 export const getAllDevices = async () => {
   const res = await API.get("/admin/devices");
   return res.data;
 };
 
+// Update device status (investigating / recovered)
+export const updateDeviceStatus = async (id, status) => {
+  const res = await API.put(`/admin/device/${id}/status`, { status });
+  return res.data;
+};
+
+// 📊 Get dashboard metrics
+export const getAdminMetrics = async () => {
+  const res = await API.get("/admin/metrics");
+  return res.data.metrics;
+};
+ 
+// 🕒 Recent Activity
+export const getRecentActivity = async () => {
+  const res = await API.get("/admin/activity");
+  return res.data.activity;
+};
+
 // =============================================================
-// 🧩 UTILITIES
+// 👮 POLICE ROUTES
+// =============================================================
+export const policeSearchDevices = async (filters) => {
+  const res = await API.post("/police/search", filters);
+  return res.data;
+};
+
+// 👮 Police — Get tracking history by IMEI
+export const getTrackingByImei = async (imei) => {
+  const res = await API.get(`/police/tracking?imei=${encodeURIComponent(imei)}`);
+  return res.data;
+};
+
+// =============================================================
+// 🤖 AI ASSISTANT ROUTE
+// =============================================================
+export const askAI = async (prompt) => {
+  const res = await API.post("/api/ask-ai", { prompt });
+  return res.data.reply;
+};
+
+// =============================================================
+// 🩺 HEALTH CHECK
 // =============================================================
 export const pingBackend = async () => {
   try {
-    const res = await API.get("/api/health"); // ✅ fixed path
+    const res = await API.get("/api/health");
     return res.data;
   } catch (err) {
     console.error("Backend ping failed:", err.message);

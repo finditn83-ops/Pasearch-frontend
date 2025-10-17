@@ -9,17 +9,18 @@ export default function NavBar() {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [online, setOnline] = useState(null);
+
   const auth = getAuth();
   const user = auth?.user;
   const username = user?.username;
   const role = user?.role;
 
-  // 🟢 Check backend connection periodically
+  // 🟢 Check backend connection every 60s
   useEffect(() => {
     const checkBackend = async () => {
       try {
         const res = await pingBackend();
-        if (res?.ok || res?.message?.includes("healthy")) {
+        if (res?.ok || res?.message?.includes("Backend reachable")) {
           setOnline(true);
         } else {
           setOnline(false);
@@ -29,24 +30,24 @@ export default function NavBar() {
       }
     };
     checkBackend();
-    const interval = setInterval(checkBackend, 60000); // every 60s
+    const interval = setInterval(checkBackend, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // highlight active page
+  // highlight active link
   const isActive = (path) =>
     location.pathname === path
       ? "text-blue-700 font-semibold border-b-2 border-blue-700 pb-1"
       : "hover:text-blue-600 transition-colors";
 
-  // logout handler
+  // logout
   const handleLogout = () => {
     clearAuth();
     toast.info("You have logged out.");
     navigate("/");
   };
 
-  // hide navbar on public pages
+  // hide navbar on these pages
   const hideNavbar = [
     "/",
     "/register/owner",
@@ -57,7 +58,7 @@ export default function NavBar() {
   ];
   if (hideNavbar.includes(location.pathname)) return null;
 
-  // dynamic menu links
+  // 🧭 Role-based navigation
   const renderLinks = () => {
     if (!user) {
       return (
@@ -94,17 +95,27 @@ export default function NavBar() {
             >
               Reporter View
             </Link>
+            <Link
+              to="/admin/activity"
+              className={isActive("/admin/activity")}
+            >
+              Activity Logs
+            </Link>
           </>
         );
+
       case "police":
         return (
-          <Link
-            to="/police/dashboard"
-            className={isActive("/police/dashboard")}
-          >
-            Dashboard
-          </Link>
+          <>
+            <Link
+              to="/police/dashboard"
+              className={isActive("/police/dashboard")}
+            >
+              Police Dashboard
+            </Link>
+          </>
         );
+
       case "reporter":
         return (
           <>
@@ -114,11 +125,15 @@ export default function NavBar() {
             >
               My Dashboard
             </Link>
-            <Link to="/reporter/report" className={isActive("/reporter/report")}>
+            <Link
+              to="/reporter/report"
+              className={isActive("/reporter/report")}
+            >
               Report Device
             </Link>
           </>
         );
+
       default:
         return null;
     }
@@ -127,7 +142,7 @@ export default function NavBar() {
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-6">
-        {/* === LEFT: Logo + Connection Light === */}
+        {/* === LEFT: Logo + Backend Status Light === */}
         <div
           onClick={() => navigate("/")}
           className="flex items-center gap-3 cursor-pointer"
@@ -136,13 +151,11 @@ export default function NavBar() {
             src="/logo.png"
             alt="PASEARCH Logo"
             className="w-10 h-10 object-contain"
-            onError={(e) => (e.target.style.display = "none")}
+            onError={(e) => (e.target.style.display = 'none')}
           />
           <h1 className="text-xl font-extrabold text-blue-700 tracking-wide">
             PASEARCH
           </h1>
-
-          {/* 🟢 Backend Status Light */}
           <div
             className={`ml-2 w-3 h-3 rounded-full ${
               online === null
@@ -177,7 +190,7 @@ export default function NavBar() {
           )}
         </div>
 
-        {/* === Mobile Menu Button === */}
+        {/* === Mobile Menu Toggle === */}
         <button
           className="md:hidden text-gray-700 focus:outline-none"
           onClick={() => setMenuOpen(!menuOpen)}

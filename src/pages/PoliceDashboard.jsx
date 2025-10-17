@@ -1,149 +1,136 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
+import { getTrackingByImei } from "../api";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
-import LogoutButton from "../components/LogoutButton";
-import { ShieldCheck, CheckCircle } from "lucide-react";
+import MapView from "../components/MapView";
 
 export default function PoliceDashboard() {
-  const [devices, setDevices] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [officerName, setOfficerName] = useState("");
-  const navigate = useNavigate();
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  const [imei, setImei] = useState("");
+  const [tracks, setTracks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
-  useEffect(() => {
-    const auth = JSON.parse(localStorage.getItem("auth"));
-    if (!auth || auth.role !== "police") {
-      toast.error("Unauthorized access");
-      navigate("/");
-      return;
-    }
-    setOfficerName(auth.username || "Officer");
-
-    const fetchReports = async () => {
-      try {
-        const headers = { Authorization: `Bearer ${auth.token}` };
-        const res = await axios.get(`${API_URL}/police/reports`, { headers });
-        setDevices(res.data.devices || []);
-      } catch (err) {
-        console.error("Failed to load reports:", err);
-        toast.error("Failed to load reports. Please check the server.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReports();
-  }, [API_URL, navigate]);
-
-  const handleVerify = async (deviceId) => {
+  // 🔄 Fetch tracking data
+  const fetchTracking = async (showToast = false) => {
+    if (!imei.trim()) return;
     try {
-      const auth = JSON.parse(localStorage.getItem("auth"));
-      const headers = { Authorization: `Bearer ${auth.token}` };
-      await axios.post(`${API_URL}/police/verify/${deviceId}`, {}, { headers });
-      toast.success("Device marked as verified.");
-      setDevices((prev) =>
-        prev.map((d) =>
-          d.id === deviceId ? { ...d, verified: true } : d
-        )
-      );
+      const res = await getTrackingByImei(imei);
+      if (res.ok && res.tracks.length > 0) {
+        setTracks(res.tracks);
+        setLastUpdated(new Date());
+        if (showToast) toast.success("Tracking data refreshed");
+      } else {
+        setTracks([]);
+        if (showToast) toast.info("No tracking data found for this IMEI.");
+      }
     } catch (err) {
-      console.error("Verification failed:", err);
-      toast.error("Unable to verify device. Try again.");
+      toast.error("Failed to fetch tracking data.");
     }
   };
 
+  // 🔍 Manual search
+  const handleSearch = async () => {
+    if (!imei.trim()) {
+      toast.warning("Please enter an IMEI number.");
+      return;
+    }
+    setLoading(true);
+    await fetchTracking(true);
+    setLoading(false);
+  };
+
+  // ⏱️ Auto-refresh every 30 s
+  useEffect(() => {
+    if (!autoRefresh || !imei) return;
+    const interval = setInterval(() => fetchTracking(), 30000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, imei]);
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6 flex flex-col">
-      {/* ===== Header ===== */}
-      <div className="flex justify-between items-center mb-6 bg-white shadow-sm p-4 rounded-lg">
-        <h1 className="text-2xl font-bold text-blue-600 flex items-center space-x-2">
-          <ShieldCheck className="w-6 h-6" />
-          <span>Police Dashboard</span>
-        </h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-700">
-            Welcome, <span className="font-semibold">{officerName}</span>
-          </span>
-          <LogoutButton />
-        </div>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <h1 className="text-xl font-bold text-blue-700 mb-4">
+        Police Tracking Dashboard
+      </h1>
+
+      {/* Search controls */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center">
+        <input
+          type="text"
+          value={imei}
+          onChange={(e) => setImei(e.target.value)}
+          placeholder="Enter IMEI number"
+          className="flex-1 border rounded-lg p-2 text-sm focus:outline-blue-500"
+        />
+        <button
+          onClick={handleSearch}
+          disabled={loading}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60"
+        >
+          {loading ? "Searching..." : "Search"}
+        </button>
+
+        {/* Auto refresh toggle */}
+        {tracks.length > 0 && (
+          <button
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`px-3 py-2 rounded-lg text-sm ${
+              autoRefresh ? "bg-green-600 text-white" : "bg-gray-200 text-gray-700"
+            }`}
+          >
+            {autoRefresh ? "⏸ Stop Auto-Refresh" : "🔄 Enable Auto-Refresh"}
+          </button>
+        )}
       </div>
 
-      {/* ===== Device Reports ===== */}
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">
-        Reported Devices
-      </h2>
+      {/* Timestamp */}
+      {lastUpdated && (
+        <p className="text-xs text-gray-500 mb-3">
+          Last updated: {lastUpdated.toLocaleTimeString()}
+        </p>
+      )}
 
-      {loading ? (
-        <p className="text-center text-gray-500">Loading reports...</p>
-      ) : (
-        <div className="overflow-x-auto shadow-lg rounded-lg border border-gray-200 bg-white">
-          <table className="min-w-full border-collapse text-sm">
-            <thead className="bg-blue-100 text-gray-700">
+      {/* Map */}
+      {tracks.length > 0 && <MapView tracks={tracks} />}
+
+      {/* Table */}
+      {tracks.length > 0 && (
+        <div className="bg-white rounded-xl shadow p-4 overflow-x-auto mt-6">
+          <h2 className="font-semibold text-gray-700 mb-2">
+            Latest tracking results for IMEI:{" "}
+            <span className="text-blue-600">{imei}</span>
+          </h2>
+          <table className="min-w-full text-sm border">
+            <thead className="bg-gray-100">
               <tr>
-                <th className="py-2 px-4 text-left border-b">ID</th>
-                <th className="py-2 px-4 text-left border-b">Reporter</th>
-                <th className="py-2 px-4 text-left border-b">Device Name</th>
-                <th className="py-2 px-4 text-left border-b">IMEI</th>
-                <th className="py-2 px-4 text-left border-b">Color</th>
-                <th className="py-2 px-4 text-left border-b">Location</th>
-                <th className="py-2 px-4 text-left border-b">Reported At</th>
-                <th className="py-2 px-4 text-left border-b text-center">Action</th>
+                <th className="p-2 border">Latitude</th>
+                <th className="p-2 border">Longitude</th>
+                <th className="p-2 border">Address</th>
+                <th className="p-2 border">Tracked By</th>
+                <th className="p-2 border">Time</th>
               </tr>
             </thead>
             <tbody>
-              {devices.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="text-center py-4 text-gray-500">
-                    No reports available.
+              {tracks.map((t, i) => (
+                <tr key={i}>
+                  <td className="p-2 border">{t.latitude}</td>
+                  <td className="p-2 border">{t.longitude}</td>
+                  <td className="p-2 border">{t.address || "N/A"}</td>
+                  <td className="p-2 border">{t.trackerName || "Unknown"}</td>
+                  <td className="p-2 border text-xs text-gray-500">
+                    {new Date(t.trackedAt).toLocaleString()}
                   </td>
                 </tr>
-              ) : (
-                devices.map((d) => (
-                  <tr
-                    key={d.id}
-                    className="hover:bg-gray-50 transition border-b last:border-b-0"
-                  >
-                    <td className="py-2 px-4">{d.id}</td>
-                    <td className="py-2 px-4">
-                      {d.reporter}
-                      <br />
-                      <span className="text-xs text-gray-500">
-                        {d.reporter_email}
-                      </span>
-                    </td>
-                    <td className="py-2 px-4">{d.device_name}</td>
-                    <td className="py-2 px-4">{d.imei}</td>
-                    <td className="py-2 px-4">{d.color}</td>
-                    <td className="py-2 px-4">{d.location_area}</td>
-                    <td className="py-2 px-4">{d.created_at}</td>
-                    <td className="py-2 px-4 text-center">
-                      {d.verified ? (
-                        <span className="text-green-600 font-medium flex items-center justify-center gap-1">
-                          <CheckCircle className="w-4 h-4" /> Verified
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleVerify(d.id)}
-                          className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
-                        >
-                          Verify
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* ===== Footer ===== */}
-      <footer className="bg-blue-700 text-white py-3 mt-8 text-center text-sm rounded-lg">
-        © {new Date().getFullYear()} Device Tracker — Police Portal
-      </footer>
+      {!loading && tracks.length === 0 && (
+        <p className="text-gray-500 text-sm italic mt-10 text-center">
+          Enter an IMEI number to view tracking history on the map.
+        </p>
+      )}
     </div>
   );
 }
