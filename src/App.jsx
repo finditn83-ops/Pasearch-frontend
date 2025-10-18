@@ -9,6 +9,8 @@ import PoliceDashboard from "./pages/PoliceDashboard";
 import DeviceLookup from "./pages/DeviceLookup";
 import DashboardLayout from "./layouts/DashboardLayout";
 import { isLoggedIn, getCurrentUser } from "./api";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function PrivateRoute({ children, roles }) {
   if (!isLoggedIn()) return <Navigate to="/login" replace />;
@@ -27,6 +29,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/report" element={<Report />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Reporter/Owner */}
       <Route

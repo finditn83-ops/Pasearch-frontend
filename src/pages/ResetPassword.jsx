@@ -1,106 +1,79 @@
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
-import { useLoading } from "../context/LoadingContext";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { resetPassword } from "../api";
+import { toast } from "react-toastify";
 
 export default function ResetPassword() {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const { token } = useParams();
-  const { loading, setLoading } = useLoading();
+  const [token, setToken] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!password.trim() || !confirmPassword.trim()) {
+    if (!token || !newPassword) {
       toast.error("Please fill in all fields.");
       return;
     }
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
-      return;
-    }
-
     try {
       setLoading(true);
-      await resetPassword(token, password);
-      toast.success("Password reset successful! Please log in.");
-      navigate("/");
+      const res = await resetPassword(token, newPassword);
+      toast.success(res.message || "Password reset successfully!");
+      navigate("/login");
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to reset password. Try again.");
+      toast.error(err.response?.data?.error || "Failed to reset password");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-md mx-auto bg-white shadow-md p-6 rounded-lg mt-8"
-    >
-      <h2 className="text-2xl font-semibold text-center text-blue-700 mb-4">
-        Reset Password
-      </h2>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+        <h2 className="text-2xl font-bold text-blue-700 text-center mb-4">
+          Reset Password
+        </h2>
+        <p className="text-gray-600 text-center mb-6">
+          Enter the reset token from your email and your new password.
+        </p>
 
-      <div>
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          New Password *
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          placeholder="Enter new password"
-          className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-          autoComplete="new-password"
-        />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder="Enter reset token"
+            className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2"
+            required
+          />
+
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Enter new password"
+            className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2"
+            required
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            {loading ? "Resetting..." : "Reset Password"}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-gray-600">
+          <span
+            onClick={() => navigate("/login")}
+            className="text-blue-600 hover:underline cursor-pointer"
+          >
+            Back to Login
+          </span>
+        </div>
       </div>
-
-      <div className="mt-3">
-        <label
-          htmlFor="confirmPassword"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Confirm Password *
-        </label>
-        <input
-          id="confirmPassword"
-          name="confirmPassword"
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          placeholder="Re-enter new password"
-          className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-          autoComplete="new-password"
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full mt-4 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
-      >
-        {loading ? "Resetting..." : "Reset Password"}
-      </button>
-
-      <div className="text-center mt-4">
-        <Link
-          to="/"
-          className="text-sm text-gray-600 hover:text-blue-600 hover:underline"
-        >
-          ← Back to Login
-        </Link>
-      </div>
-    </form>
+    </div>
   );
 }

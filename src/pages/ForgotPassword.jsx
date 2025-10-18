@@ -1,78 +1,66 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
 import { toast } from "react-toastify";
-import { useLoading } from "../context/LoadingContext";
 import { requestPasswordReset } from "../api";
+import { useNavigate } from "react-router-dom";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const { loading, setLoading } = useLoading();
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!email.trim()) {
-      toast.error("Please enter your email address.");
-      return;
-    }
-
+    if (!email) return toast.error("Please enter your email.");
     try {
       setLoading(true);
-      await requestPasswordReset(email);
-      toast.success("Password reset link sent! Check your email.");
+      const res = await requestPasswordReset(email);
+      toast.success(res.message || "Password reset link sent!");
+      navigate("/reset-password");
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to send reset link. Please try again.");
+      toast.error(err.response?.data?.error || "Failed to send reset link");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-md mx-auto bg-white shadow-md p-6 rounded-lg mt-8"
-    >
-      <h2 className="text-2xl font-semibold text-center text-blue-700 mb-4">
-        Forgot Password
-      </h2>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+        <h2 className="text-2xl font-bold text-blue-700 text-center mb-4">
+          Forgot Password
+        </h2>
+        <p className="text-gray-600 text-center mb-6">
+          Enter your registered email, and we'll send you a reset link.
+        </p>
 
-      <div>
-        <label
-          htmlFor="email"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Email Address *
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          placeholder="Enter your registered email"
-          className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-          autoComplete="email"
-        />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter your email"
+            className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2"
+            required
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            {loading ? "Sending..." : "Send Reset Link"}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-gray-600">
+          <span
+            onClick={() => navigate("/login")}
+            className="text-blue-600 hover:underline cursor-pointer"
+          >
+            Back to Login
+          </span>
+        </div>
       </div>
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full mt-4 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
-      >
-        {loading ? "Sending..." : "Send Reset Link"}
-      </button>
-
-      <div className="text-center mt-4">
-        <Link
-          to="/"
-          className="text-sm text-gray-600 hover:text-blue-600 hover:underline"
-        >
-          ← Back to Login
-        </Link>
-      </div>
-    </form>
+    </div>
   );
 }
