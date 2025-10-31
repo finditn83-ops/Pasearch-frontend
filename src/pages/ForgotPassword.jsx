@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
-import { requestPasswordReset } from "../api";
+import { forgotPassword } from "../api";
 import { useNavigate } from "react-router-dom";
 
 export default function ForgotPassword() {
@@ -9,20 +9,20 @@ export default function ForgotPassword() {
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!email) return toast.error("Please enter your email.");
-    try {
-      setLoading(true);
-      const res = await requestPasswordReset(email);
-      toast.success(res.message || "Password reset link sent!");
-      navigate("/reset-password");
-    } catch (err) {
-      toast.error(err.response?.data?.error || "Failed to send reset link");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  e.preventDefault();
+  if (!email) return toast.error("Please enter your email.");
+  try {
+    setLoading(true);
+    // ✅ Use the correct API function name
+    const res = await forgotPassword(email);
+    toast.success(res.message || "Password reset link sent!");
+    navigate("/reset-password");
+  } catch (err) {
+    toast.error(err.response?.data?.error || "Failed to send reset link");
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">

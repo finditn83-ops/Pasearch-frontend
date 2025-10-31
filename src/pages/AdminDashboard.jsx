@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
-  getAllDevices,
+  getAllReports,
   updateDeviceStatus,
   getAllUsers,
-  getAdminMetrics,
-  getRecentActivity,
 } from "../api";
 import { toast } from "react-toastify";
 
@@ -16,27 +14,19 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("overview");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [devRes, userRes, metricsRes, activityRes] = await Promise.all([
-          getAllDevices(),
-          getAllUsers(),
-          getAdminMetrics(),
-          getRecentActivity(),
-        ]);
-        setDevices(devRes.devices || []);
-        setUsers(userRes.users || []);
-        setMetrics(metricsRes || {});
-        setActivity(activityRes || {});
-      } catch (err) {
-        toast.error("Failed to load admin data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+useEffect(() => {
+  const loadReports = async () => {
+    try {
+      const reports = await getAllReports();
+      setDevices(reports); // reuse existing "devices" state
+    } catch {
+      toast.error("Failed to load device reports.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  loadReports();
+}, []);
 
   const handleStatus = async (id, status) => {
     try {

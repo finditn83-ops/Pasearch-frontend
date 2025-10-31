@@ -250,5 +250,18 @@ export const pingBackend = async () => {
   }
 };
 
+// =============================================================
+// 📋 REPORT ROUTES (Fetch all reports for Admin/Police)
+// =============================================================
+export const getAllReports = async () => {
+  try {
+    const res = await API.get("/api/reports");
+    return res.data.data || [];
+  } catch (err) {
+    console.error("Error fetching reports:", err.message);
+    throw err;
+  }
+};
+
 // ✅ Default export
 export default API;
