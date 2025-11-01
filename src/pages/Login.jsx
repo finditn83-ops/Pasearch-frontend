@@ -1,54 +1,33 @@
 // ==============================
 // 🔐 Login Page — Pasearch
 // ==============================
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
-import React, { useEffect, useState } from "react";
 
 export default function Login() {
-  const [status, setStatus] = useState("🔄 Checking backend...");
-
-  useEffect(() => {
-    const api = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    fetch(`${api}/api/health`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.ok) setStatus("✅ Backend Connected");
-        else setStatus("⚠️ Unexpected response");
-      })
-      .catch((err) => {
-        console.error("Backend check failed:", err);
-        setStatus("❌ Backend Offline or CORS blocked");
-      });
-  }, []);
-
-  return (
-    <div style={{ textAlign: "center", padding: "2rem" }}>
-      <h2>Login Page</h2>
-      <p>{status}</p>
-
-      {/* ✅ Your normal login form starts below */}
-      {/* Example placeholder: */}
-      <form>
-        <input type="email" placeholder="Email" required />
-        <input type="password" placeholder="Password" required />
-        <button type="submit">Login</button>
-      </form>
-    </div>
-  );
-}
-
-export default function Login() {
+  const [backendStatus, setBackendStatus] = useState("🔄 Checking backend...");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ Use environment variable or fallback to localhost
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  // ✅ Backend check
+  useEffect(() => {
+    const api = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    fetch(`${api}/api/health`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok) setBackendStatus("✅ Backend Connected");
+        else setBackendStatus("⚠️ Unexpected response");
+      })
+      .catch(() => {
+        setBackendStatus("❌ Backend Offline or CORS blocked");
+      });
+  }, []);
 
+  // ✅ Login handler
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -59,10 +38,8 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const res = await axios.post(`${API_URL}/auth/login`, {
-        username,
-        password,
-      });
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const res = await axios.post(`${API_URL}/auth/login`, { username, password });
 
       const data = res.data;
       toast.success("Login successful!");
@@ -81,7 +58,7 @@ export default function Login() {
       const role = data.role || data.user?.role;
       if (role === "admin") navigate("/admin/dashboard");
       else if (role === "police") navigate("/police/dashboard");
-      else if (role === "reporter") navigate("/reporter/report");
+      else if (role === "reporter") navigate("/report");
       else {
         toast.error("Unknown user role. Please contact support.");
         navigate("/");
@@ -94,17 +71,16 @@ export default function Login() {
     }
   };
 
+  // ✅ UI
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-6">
-      <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white px-4">
+      <div className="bg-white text-gray-900 shadow-2xl rounded-2xl p-8 w-full max-w-md">
         {/* ===== Header ===== */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-blue-600 mb-2">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-blue-600 mb-1">
             👋 Welcome Back to Pasearch
           </h1>
-          <p className="text-gray-500 text-sm">
-            Sign in to continue protecting your devices.
-          </p>
+          <p className="text-gray-500 text-sm">{backendStatus}</p>
         </div>
 
         {/* ===== Login Form ===== */}
@@ -124,8 +100,8 @@ export default function Login() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring focus:ring-blue-200"
               autoComplete="username"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
 
@@ -144,8 +120,8 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring focus:ring-blue-200"
               autoComplete="current-password"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
 
@@ -153,24 +129,26 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-all duration-200"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
 
           {/* Forgot / Register Links */}
-          <p className="text-center text-sm text-gray-600 mt-4">
-            Forgot password?{" "}
-            <Link to="/forgot-password" className="text-blue-600 hover:underline">
-              Reset here
-            </Link>
-          </p>
-          <p className="text-center text-sm text-gray-600 mt-2">
-            Don’t have an account?{" "}
-            <Link to="/register/owner" className="text-blue-600 hover:underline">
-              Create one
-            </Link>
-          </p>
+          <div className="text-center text-sm text-gray-600 mt-4">
+            <p>
+              Forgot password?{" "}
+              <Link to="/forgot-password" className="text-blue-600 hover:underline">
+                Reset here
+              </Link>
+            </p>
+            <p className="mt-2">
+              Don’t have an account?{" "}
+              <Link to="/register/owner" className="text-blue-600 hover:underline">
+                Create one
+              </Link>
+            </p>
+          </div>
         </form>
       </div>
     </div>
