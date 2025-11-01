@@ -1,100 +1,143 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { login } from "../api";
+// ==============================
+// 🔐 Login Page — Pasearch
+// ==============================
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import axios from "axios";
 import { toast } from "react-toastify";
 
 export default function Login() {
-  const [emailOrUsername, setEmailOrUsername] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  // ✅ Use environment variable or fallback to localhost
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (!emailOrUsername || !password) {
-      toast.error("Please fill in all fields");
+
+    if (!username || !password) {
+      toast.error("Please enter both username and password.");
       return;
     }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await login(emailOrUsername, password);
+      const res = await axios.post(`${API_URL}/auth/login`, {
+        username,
+        password,
+      });
+
+      const data = res.data;
       toast.success("Login successful!");
-      const role = res.user.role;
+
+      // ✅ Store token and user info
+      localStorage.setItem(
+        "auth",
+        JSON.stringify({
+          token: data.token,
+          role: data.role || data.user?.role,
+          username: data.username || data.user?.username,
+        })
+      );
+
+      // ✅ Navigate based on role
+      const role = data.role || data.user?.role;
       if (role === "admin") navigate("/admin/dashboard");
       else if (role === "police") navigate("/police/dashboard");
-      else navigate("/reporter/dashboard");
+      else if (role === "reporter") navigate("/reporter/report");
+      else {
+        toast.error("Unknown user role. Please contact support.");
+        navigate("/");
+      }
     } catch (err) {
-      toast.error(err.response?.data?.error || "Login failed");
+      console.error("Login failed:", err);
+      toast.error(err.response?.data?.error || "Invalid username or password.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-6">
       <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center text-blue-700 mb-6">
-          Login to PASEARCH
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* ===== Header ===== */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-blue-600 mb-2">
+            👋 Welcome Back to Pasearch
+          </h1>
+          <p className="text-gray-500 text-sm">
+            Sign in to continue protecting your devices.
+          </p>
+        </div>
+
+        {/* ===== Login Form ===== */}
+        <form onSubmit={handleLogin} className="space-y-4">
+          {/* Username */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Username or Email
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Username *
             </label>
             <input
+              id="username"
               type="text"
-              value={emailOrUsername}
-              onChange={(e) => setEmailOrUsername(e.target.value)}
-              className="mt-1 w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2"
-              placeholder="Enter username or email"
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring focus:ring-blue-200"
               autoComplete="username"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2"
-              placeholder="Enter password"
-              autoComplete="current-password"
-              required
             />
           </div>
 
+          {/* Password */}
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Password *
+            </label>
+            <input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring focus:ring-blue-200"
+              autoComplete="current-password"
+            />
+          </div>
+
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
-        </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>
+          {/* Forgot / Register Links */}
+          <p className="text-center text-sm text-gray-600 mt-4">
             Forgot password?{" "}
-            <span
-              onClick={() => navigate("/forgot-password")}
-              className="text-blue-600 cursor-pointer hover:underline"
-            >
+            <Link to="/forgot-password" className="text-blue-600 hover:underline">
               Reset here
-            </span>
+            </Link>
           </p>
-          <p className="mt-2">
-            New user?{" "}
-            <span
-              onClick={() => navigate("/register")}
-              className="text-blue-600 cursor-pointer hover:underline"
-            >
-              Create an account
-            </span>
+          <p className="text-center text-sm text-gray-600 mt-2">
+            Don’t have an account?{" "}
+            <Link to="/register/owner" className="text-blue-600 hover:underline">
+              Create one
+            </Link>
           </p>
-        </div>
+        </form>
       </div>
     </div>
   );
