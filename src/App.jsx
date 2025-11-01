@@ -1,8 +1,8 @@
 // ==============================
-// ⚙️ App Routing — Pasearch Frontend (Full Final Version)
+// ⚙️ App Routing — Pasearch Frontend (Final Stable Version)
 // ==============================
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 // ✅ Pages
 import Welcome from "./pages/Welcome";
@@ -38,55 +38,53 @@ function PrivateRoute({ children, roles }) {
 // ==============================
 export default function App() {
   return (
-    <Router>
-      <Routes>
-        {/* 🌐 Public Routes */}
-        <Route path="/" element={<Welcome />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register/owner" element={<Register />} />
-        <Route path="/report" element={<Report />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+    <Routes>
+      {/* 🌐 Public Routes */}
+      <Route path="/" element={<Welcome />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register/owner" element={<Register />} />
+      <Route path="/report" element={<Report />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* 🔍 Device Lookup (Reporter/Admin/Police) */}
-        <Route
-          path="/device/lookup"
-          element={
-            <PrivateRoute roles={["reporter", "admin", "police"]}>
-              <DashboardLayout>
-                <DeviceLookup />
-              </DashboardLayout>
-            </PrivateRoute>
-          }
-        />
+      {/* 🔍 Device Lookup (Reporter/Admin/Police) */}
+      <Route
+        path="/device/lookup"
+        element={
+          <PrivateRoute roles={["reporter", "admin", "police"]}>
+            <DashboardLayout>
+              <DeviceLookup />
+            </DashboardLayout>
+          </PrivateRoute>
+        }
+      />
 
-        {/* 🧑‍💼 Admin Dashboard */}
-        <Route
-          path="/admin/dashboard"
-          element={
-            <PrivateRoute roles={["admin"]}>
-              <DashboardLayout>
-                <AdminDashboard />
-              </DashboardLayout>
-            </PrivateRoute>
-          }
-        />
+      {/* 🧑‍💼 Admin Dashboard */}
+      <Route
+        path="/admin/dashboard"
+        element={
+          <PrivateRoute roles={["admin"]}>
+            <DashboardLayout>
+              <AdminDashboard />
+            </DashboardLayout>
+          </PrivateRoute>
+        }
+      />
 
-        {/* 👮 Police Dashboard */}
-        <Route
-          path="/police/dashboard"
-          element={
-            <PrivateRoute roles={["police", "admin"]}>
-              <DashboardLayout>
-                <PoliceDashboard />
-              </DashboardLayout>
-            </PrivateRoute>
-          }
-        />
+      {/* 👮 Police Dashboard */}
+      <Route
+        path="/police/dashboard"
+        element={
+          <PrivateRoute roles={["police", "admin"]}>
+            <DashboardLayout>
+              <PoliceDashboard />
+            </DashboardLayout>
+          </PrivateRoute>
+        }
+      />
 
-        {/* 🚫 Fallback Route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+      {/* 🚫 Fallback Route */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
