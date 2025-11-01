@@ -5,6 +5,40 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
+import React, { useEffect, useState } from "react";
+
+export default function Login() {
+  const [status, setStatus] = useState("🔄 Checking backend...");
+
+  useEffect(() => {
+    const api = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    fetch(`${api}/api/health`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok) setStatus("✅ Backend Connected");
+        else setStatus("⚠️ Unexpected response");
+      })
+      .catch((err) => {
+        console.error("Backend check failed:", err);
+        setStatus("❌ Backend Offline or CORS blocked");
+      });
+  }, []);
+
+  return (
+    <div style={{ textAlign: "center", padding: "2rem" }}>
+      <h2>Login Page</h2>
+      <p>{status}</p>
+
+      {/* ✅ Your normal login form starts below */}
+      {/* Example placeholder: */}
+      <form>
+        <input type="email" placeholder="Email" required />
+        <input type="password" placeholder="Password" required />
+        <button type="submit">Login</button>
+      </form>
+    </div>
+  );
+}
 
 export default function Login() {
   const [username, setUsername] = useState("");
