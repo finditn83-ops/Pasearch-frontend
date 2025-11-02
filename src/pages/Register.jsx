@@ -57,31 +57,52 @@ export default function Register() {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
-          placeholder="Choose a username"
+          placeholder="Create  username"
           className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
           autoComplete="username"
         />
       </div>
 
-      {/* Email */}
-      <div className="mt-3">
-        <label
-          htmlFor="email"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Enter your email (optional)"
-          className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-          autoComplete="email"
-        />
-      </div>
+    {/* Email */}
+<div>
+  <label
+    htmlFor="email"
+    className="block text-sm font-medium text-gray-700 mb-1"
+  >
+    Email *
+  </label>
+  <input
+    id="email"
+    type="email"
+    placeholder="Enter your email address"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    required
+    autoComplete="email"
+    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+  />
+</div>
+
+{/* Phone */}
+<div>
+  <label
+    htmlFor="phone"
+    className="block text-sm font-medium text-gray-700 mb-1"
+  >
+    Phone Number *
+  </label>
+  <input
+    id="phone"
+    type="tel"
+    placeholder="Enter your phone number"
+    value={phone}
+    onChange={(e) => setPhone(e.target.value)}
+    required
+    autoComplete="tel"
+    pattern="^[0-9+\s-]{7,15}$"
+    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+  />
+</div>
 
       {/* Password */}
       <div className="mt-3">
