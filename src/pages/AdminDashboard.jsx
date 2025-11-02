@@ -1,12 +1,6 @@
 import React, { useEffect, useState } from "react";
-import {
-  getAllReports,
-  updateDeviceStatus,
-  getAllUsers,
-  getAdminMetrics,
-  getRecentActivity,
-} from "../api";
 import { toast } from "react-toastify";
+import API from "../api";
 
 export default function AdminDashboard() {
   const [devices, setDevices] = useState([]);
@@ -17,31 +11,34 @@ export default function AdminDashboard() {
   const [view, setView] = useState("overview");
 
   useEffect(() => {
-    const loadData = async () => {
+    async function loadData() {
       try {
-        const [reports, usersData, newMetrics, newActivity] = await Promise.all([
-          getAllReports(),
-          getAllUsers(),
-          getAdminMetrics(),
-          getRecentActivity(),
+        // ✅ Adjust endpoints to match your backend routes
+        const [reports, usersRes, metricsRes, activityRes] = await Promise.all([
+          API.get("/admin/reports").catch(() => ({ data: [] })),
+          API.get("/admin/users").catch(() => ({ data: [] })),
+          API.get("/admin/metrics").catch(() => ({ data: {} })),
+          API.get("/admin/activity").catch(() => ({ data: {} })),
         ]);
-        setDevices(reports);
-        setUsers(usersData);
-        setMetrics(newMetrics);
-        setActivity(newActivity);
+
+        setDevices(reports.data || []);
+        setUsers(usersRes.data || []);
+        setMetrics(metricsRes.data || {});
+        setActivity(activityRes.data || {});
       } catch (err) {
-        console.error(err);
+        console.error("Admin load error:", err);
         toast.error("Failed to load admin data.");
       } finally {
         setLoading(false);
       }
-    };
+    }
+
     loadData();
   }, []);
 
   const handleStatus = async (id, status) => {
     try {
-      await updateDeviceStatus(id, status);
+      await API.put(`/admin/update-device/${id}`, { status });
       toast.success(`Device marked as ${status}`);
       setDevices((prev) =>
         prev.map((d) => (d.id === id ? { ...d, status } : d))
@@ -55,9 +52,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-4">
-      <h1 className="text-xl font-bold mb-4 text-blue-600">Admin Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-4 text-blue-600">Admin Dashboard</h1>
 
-      {/* Dashboard metrics */}
+      {/* === Metrics Summary === */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <MetricCard title="Total Users" value={metrics.totalUsers} color="bg-blue-500" />
         <MetricCard title="Devices Reported" value={metrics.totalReports} color="bg-indigo-500" />
@@ -65,7 +62,7 @@ export default function AdminDashboard() {
         <MetricCard title="Under Investigation" value={metrics.underInvestigation} color="bg-yellow-500" />
       </div>
 
-      {/* Tabs */}
+      {/* === Tabs === */}
       <div className="flex flex-wrap gap-2 mb-4">
         {["overview", "devices", "users", "activity"].map((tab) => (
           <button
@@ -80,21 +77,24 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* === Tab Views === */}
+      {view === "overview" && (
+        <div className="text-gray-700">
+          <p>Welcome, Admin! Use the tabs to manage users, view device reports, and monitor system activity.</p>
+        </div>
+      )}
       {view === "devices" && (
         <DeviceTable devices={devices} onStatus={handleStatus} />
       )}
       {view === "users" && <UserTable users={users} />}
       {view === "activity" && <RecentActivity activity={activity} />}
-      {view === "overview" && (
-        <p className="text-gray-600">
-          Welcome, Admin! Use the tabs above to manage users, view reports, and track activity.
-        </p>
-      )}
     </div>
   );
 }
 
-// ✅ Metric card
+/* =======================
+   Metric Card
+======================= */
 function MetricCard({ title, value, color }) {
   return (
     <div className={`rounded-lg shadow-md p-4 text-white ${color}`}>
@@ -104,10 +104,12 @@ function MetricCard({ title, value, color }) {
   );
 }
 
-// ✅ Devices table
+/* =======================
+   Devices Table
+======================= */
 function DeviceTable({ devices, onStatus }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto bg-white rounded-lg shadow">
       <table className="min-w-full border text-sm">
         <thead className="bg-gray-100">
           <tr>
@@ -119,38 +121,48 @@ function DeviceTable({ devices, onStatus }) {
           </tr>
         </thead>
         <tbody>
-          {devices.map((d) => (
-            <tr key={d.id}>
-              <td className="p-2 border">{d.imei}</td>
-              <td className="p-2 border">{d.device_type}</td>
-              <td className="p-2 border">{d.email}</td>
-              <td className="p-2 border capitalize">{d.status}</td>
-              <td className="p-2 border space-x-2">
-                <button
-                  onClick={() => onStatus(d.id, "investigating")}
-                  className="px-2 py-1 text-xs bg-yellow-400 text-white rounded"
-                >
-                  Investigating
-                </button>
-                <button
-                  onClick={() => onStatus(d.id, "recovered")}
-                  className="px-2 py-1 text-xs bg-green-500 text-white rounded"
-                >
-                  Recovered
-                </button>
+          {devices.length ? (
+            devices.map((d) => (
+              <tr key={d.id}>
+                <td className="p-2 border">{d.imei}</td>
+                <td className="p-2 border">{d.device_type}</td>
+                <td className="p-2 border">{d.email}</td>
+                <td className="p-2 border capitalize">{d.status}</td>
+                <td className="p-2 border space-x-2">
+                  <button
+                    onClick={() => onStatus(d.id, "investigating")}
+                    className="px-2 py-1 text-xs bg-yellow-400 text-white rounded"
+                  >
+                    Investigating
+                  </button>
+                  <button
+                    onClick={() => onStatus(d.id, "recovered")}
+                    className="px-2 py-1 text-xs bg-green-500 text-white rounded"
+                  >
+                    Recovered
+                  </button>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="5" className="p-2 text-center text-gray-500">
+                No reported devices
               </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
     </div>
   );
 }
 
-// ✅ Users table
+/* =======================
+   Users Table
+======================= */
 function UserTable({ users }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto bg-white rounded-lg shadow">
       <table className="min-w-full border text-sm">
         <thead className="bg-gray-100">
           <tr>
@@ -161,23 +173,33 @@ function UserTable({ users }) {
           </tr>
         </thead>
         <tbody>
-          {users.map((u) => (
-            <tr key={u.id}>
-              <td className="p-2 border">{u.username}</td>
-              <td className="p-2 border">{u.email}</td>
-              <td className="p-2 border">{u.role}</td>
-              <td className="p-2 border">
-                {new Date(u.created_at).toLocaleDateString()}
+          {users.length ? (
+            users.map((u) => (
+              <tr key={u.id}>
+                <td className="p-2 border">{u.username}</td>
+                <td className="p-2 border">{u.email}</td>
+                <td className="p-2 border">{u.role}</td>
+                <td className="p-2 border">
+                  {new Date(u.created_at).toLocaleDateString()}
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="4" className="p-2 text-center text-gray-500">
+                No users found
               </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
     </div>
   );
 }
 
-// ✅ Recent activity
+/* =======================
+   Recent Activity
+======================= */
 function RecentActivity({ activity }) {
   const logs = activity.system_logs || [];
   const reports = activity.device_reports || [];
@@ -187,7 +209,7 @@ function RecentActivity({ activity }) {
       <div className="bg-white rounded shadow p-4">
         <h2 className="font-bold text-blue-600 mb-2">🕒 System Logs</h2>
         <ul className="text-sm space-y-1 max-h-80 overflow-y-auto">
-          {logs.length > 0 ? (
+          {logs.length ? (
             logs.map((log, i) => (
               <li key={i} className="border-b pb-1">
                 <b>{log.username}</b> — {log.action}
@@ -198,7 +220,7 @@ function RecentActivity({ activity }) {
               </li>
             ))
           ) : (
-            <p className="text-gray-500">No recent system logs.</p>
+            <p className="text-gray-500">No recent logs.</p>
           )}
         </ul>
       </div>
@@ -206,7 +228,7 @@ function RecentActivity({ activity }) {
       <div className="bg-white rounded shadow p-4">
         <h2 className="font-bold text-purple-600 mb-2">📱 Recent Reports</h2>
         <ul className="text-sm space-y-1 max-h-80 overflow-y-auto">
-          {reports.length > 0 ? (
+          {reports.length ? (
             reports.map((r, i) => (
               <li key={i} className="border-b pb-1">
                 <b>{r.device_type}</b> — IMEI: {r.imei}
