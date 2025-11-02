@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import API from "../api";
 
+// ===========================================
+// 🌐 ADMIN DASHBOARD PAGE
+// ===========================================
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+
+  // --- State ---
   const [devices, setDevices] = useState([]);
   const [users, setUsers] = useState([]);
   const [metrics, setMetrics] = useState({});
@@ -10,10 +17,19 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("overview");
 
+  // --- Load Data ---
   useEffect(() => {
-    async function loadData() {
+    const auth = JSON.parse(localStorage.getItem("auth") || "null");
+
+    // ✅ Redirect if not logged in or not admin
+    if (!auth || auth.role !== "admin") {
+      toast.warning("Access denied. Please log in as admin.");
+      navigate("/login");
+      return;
+    }
+
+    async function loadDashboardData() {
       try {
-        // ✅ Adjust endpoints to match your backend routes
         const [reports, usersRes, metricsRes, activityRes] = await Promise.all([
           API.get("/admin/reports").catch(() => ({ data: [] })),
           API.get("/admin/users").catch(() => ({ data: [] })),
@@ -26,16 +42,17 @@ export default function AdminDashboard() {
         setMetrics(metricsRes.data || {});
         setActivity(activityRes.data || {});
       } catch (err) {
-        console.error("Admin load error:", err);
+        console.error("Dashboard load error:", err);
         toast.error("Failed to load admin data.");
       } finally {
         setLoading(false);
       }
     }
 
-    loadData();
-  }, []);
+    loadDashboardData();
+  }, [navigate]);
 
+  // --- Update Device Status ---
   const handleStatus = async (id, status) => {
     try {
       await API.put(`/admin/update-device/${id}`, { status });
@@ -48,8 +65,10 @@ export default function AdminDashboard() {
     }
   };
 
+  // --- Loading State ---
   if (loading) return <p className="p-4 text-gray-600">Loading dashboard...</p>;
 
+  // --- Main Render ---
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4 text-blue-600">Admin Dashboard</h1>
@@ -68,7 +87,7 @@ export default function AdminDashboard() {
           <button
             key={tab}
             onClick={() => setView(tab)}
-            className={`px-4 py-2 rounded ${
+            className={`px-4 py-2 rounded transition ${
               view === tab ? "bg-blue-600 text-white" : "bg-gray-200"
             }`}
           >
@@ -79,22 +98,26 @@ export default function AdminDashboard() {
 
       {/* === Tab Views === */}
       {view === "overview" && (
-        <div className="text-gray-700">
-          <p>Welcome, Admin! Use the tabs to manage users, view device reports, and monitor system activity.</p>
-        </div>
+        <p className="text-gray-700">
+          Welcome, Admin! Use the tabs above to manage users, handle device
+          reports, and view system activity.
+        </p>
       )}
+
       {view === "devices" && (
         <DeviceTable devices={devices} onStatus={handleStatus} />
       )}
+
       {view === "users" && <UserTable users={users} />}
+
       {view === "activity" && <RecentActivity activity={activity} />}
     </div>
   );
 }
 
-/* =======================
-   Metric Card
-======================= */
+// ===========================================
+// 📊 METRIC CARD
+// ===========================================
 function MetricCard({ title, value, color }) {
   return (
     <div className={`rounded-lg shadow-md p-4 text-white ${color}`}>
@@ -104,9 +127,9 @@ function MetricCard({ title, value, color }) {
   );
 }
 
-/* =======================
-   Devices Table
-======================= */
+// ===========================================
+// 💾 DEVICES TABLE
+// ===========================================
 function DeviceTable({ devices, onStatus }) {
   return (
     <div className="overflow-x-auto bg-white rounded-lg shadow">
@@ -147,7 +170,7 @@ function DeviceTable({ devices, onStatus }) {
           ) : (
             <tr>
               <td colSpan="5" className="p-2 text-center text-gray-500">
-                No reported devices
+                No reported devices.
               </td>
             </tr>
           )}
@@ -157,9 +180,9 @@ function DeviceTable({ devices, onStatus }) {
   );
 }
 
-/* =======================
-   Users Table
-======================= */
+// ===========================================
+// 👥 USERS TABLE
+// ===========================================
 function UserTable({ users }) {
   return (
     <div className="overflow-x-auto bg-white rounded-lg shadow">
@@ -187,7 +210,7 @@ function UserTable({ users }) {
           ) : (
             <tr>
               <td colSpan="4" className="p-2 text-center text-gray-500">
-                No users found
+                No users found.
               </td>
             </tr>
           )}
@@ -197,15 +220,16 @@ function UserTable({ users }) {
   );
 }
 
-/* =======================
-   Recent Activity
-======================= */
+// ===========================================
+// 🕒 RECENT ACTIVITY
+// ===========================================
 function RecentActivity({ activity }) {
   const logs = activity.system_logs || [];
   const reports = activity.device_reports || [];
 
   return (
     <div className="grid md:grid-cols-2 gap-4">
+      {/* System Logs */}
       <div className="bg-white rounded shadow p-4">
         <h2 className="font-bold text-blue-600 mb-2">🕒 System Logs</h2>
         <ul className="text-sm space-y-1 max-h-80 overflow-y-auto">
@@ -225,6 +249,7 @@ function RecentActivity({ activity }) {
         </ul>
       </div>
 
+      {/* Device Reports */}
       <div className="bg-white rounded shadow p-4">
         <h2 className="font-bold text-purple-600 mb-2">📱 Recent Reports</h2>
         <ul className="text-sm space-y-1 max-h-80 overflow-y-auto">
