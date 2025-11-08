@@ -5,15 +5,17 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { clearAuth } from "./utils/auth";
 
-// ✅ Base URL (auto-detects environment)
+// =============================================================
+// ⚙️ Axios Instance
+// =============================================================
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
-  timeout: 15000,
+  timeout: 15000, // 15 seconds timeout
   headers: { "Content-Type": "application/json" },
 });
 
 // =============================================================
-// 🔐 Request Interceptor — Auto Attach JWT Token
+// 🔐 Request Interceptor — Attach JWT Token
 // =============================================================
 API.interceptors.request.use(
   (config) => {
@@ -31,6 +33,7 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
+
     if (status === 401) {
       toast.error("Session expired. Please log in again.");
       clearAuth();
@@ -38,21 +41,22 @@ API.interceptors.response.use(
     } else if (status >= 500) {
       toast.error("Server error. Please try again later.");
     }
+
     return Promise.reject(error);
   }
 );
 
 // =============================================================
-// 📱 API Endpoints
+// 🧑‍💻 AUTH ENDPOINTS
 // =============================================================
 
-// ✅ 1️⃣ Register new user
+// ✅ 1️⃣ Register
 export const register = async (data) => {
   const res = await API.post("/auth/register", data);
   return res.data;
 };
 
-// ✅ 2️⃣ Login user
+// ✅ 2️⃣ Login
 export const login = async (data) => {
   const res = await API.post("/auth/login", data);
   return res.data;
@@ -76,32 +80,35 @@ export const resetPassword = async (email, newPassword) => {
   return res.data;
 };
 
+// =============================================================
+// 📱 DEVICE ENDPOINTS
+// =============================================================
 
-// ✅ 3️⃣ Get Device by IMEI
+// ✅ 6️⃣ Get Device by IMEI
 export const getDeviceByImei = async (imei) => {
   const res = await API.get(`/devices/${imei}`);
   return res.data;
 };
 
-// ✅ 4️⃣ Report Lost Device
+// ✅ 7️⃣ Report Lost Device
 export const reportDevice = async (data) => {
   const res = await API.post("/report-device", data);
   return res.data;
 };
 
-// ✅ 5️⃣ Track Device
+// ✅ 8️⃣ Track Device (live updates)
 export const trackDevice = async (data) => {
   const res = await API.post("/track-device", data);
   return res.data;
 };
 
-// ✅ 6️⃣ Get All Devices (for Admin)
+// ✅ 9️⃣ Get All Devices (Admin)
 export const getAllDevices = async () => {
   const res = await API.get("/devices");
   return res.data;
 };
 
-// ✅ 7️⃣ Update Device Status (for Admin)
+// ✅ 🔟 Update Device Status (Admin)
 export const updateDeviceStatus = async (id, status, updated_by) => {
   const res = await API.put(`/admin/update-device/${id}`, {
     status,
@@ -110,10 +117,23 @@ export const updateDeviceStatus = async (id, status, updated_by) => {
   return res.data;
 };
 
-// ✅ 8️⃣ Get Recent Police Updates (for Police Dashboard)
+// =============================================================
+// 🚓 POLICE ENDPOINTS
+// =============================================================
+
+// ✅ 1️⃣1️⃣ Get recent police updates (for log table)
 export const getRecentPoliceUpdates = async () => {
   const res = await API.get("/admin/police-updates");
   return res.data;
 };
 
+// ✅ 1️⃣2️⃣ Update case details
+export const updatePoliceCase = async (id, data) => {
+  const res = await API.put(`/admin/update-case/${id}`, data);
+  return res.data;
+};
+
+// =============================================================
+// ✅ Export Axios instance
+// =============================================================
 export default API;
