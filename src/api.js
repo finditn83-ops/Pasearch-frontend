@@ -8,7 +8,7 @@ import { clearAuth } from "./utils/auth";
 // ✅ Base URL (auto-detects environment)
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
-  timeout: 15000, // 15 seconds
+  timeout: 15000, // 15 seconds timeout
   headers: { "Content-Type": "application/json" },
 });
 
@@ -25,12 +25,13 @@ API.interceptors.request.use(
 );
 
 // =============================================================
-// ⚠️ Response Interceptor — Handle Global Errors
+// ⚠️ Response Interceptor — Global Error Handling
 // =============================================================
 API.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
+
     if (status === 401) {
       toast.error("Session expired. Please log in again.");
       clearAuth();
@@ -38,6 +39,7 @@ API.interceptors.response.use(
     } else if (status >= 500) {
       toast.error("Server error. Please try again later.");
     }
+
     return Promise.reject(error);
   }
 );
@@ -46,31 +48,43 @@ API.interceptors.response.use(
 // 📱 API Endpoints
 // =============================================================
 
-// ✅ 1️⃣ Get Device by IMEI
-export const getDeviceByImei = async (imei) => {
-  const res = await API.get(`/devices/${imei}`);
-  return res.data; // make sure we return .data, not the whole response
+// ✅ 1️⃣ Register new user
+export const register = async (data) => {
+  const res = await API.post("/auth/register", data);
+  return res.data;
 };
 
-// ✅ 2️⃣ Report Lost Device
+// ✅ 2️⃣ Login user
+export const login = async (data) => {
+  const res = await API.post("/auth/login", data);
+  return res.data;
+};
+
+// ✅ 3️⃣ Get Device by IMEI
+export const getDeviceByImei = async (imei) => {
+  const res = await API.get(`/devices/${imei}`);
+  return res.data; // ensure only data is returned
+};
+
+// ✅ 4️⃣ Report Lost Device
 export const reportDevice = async (data) => {
   const res = await API.post("/report-device", data);
   return res.data;
 };
 
-// ✅ 3️⃣ Track Device (used by trackers / reporters)
+// ✅ 5️⃣ Track Device (used by reporters or trackers)
 export const trackDevice = async (data) => {
   const res = await API.post("/track-device", data);
   return res.data;
 };
 
-// ✅ 4️⃣ Get All Devices (for Admin)
+// ✅ 6️⃣ Get All Devices (for Admin)
 export const getAllDevices = async () => {
   const res = await API.get("/devices");
   return res.data;
 };
 
-// ✅ 5️⃣ Update Device Status (for Admin)
+// ✅ 7️⃣ Update Device Status (for Admin)
 export const updateDeviceStatus = async (id, status, updated_by) => {
   const res = await API.put(`/admin/update-device/${id}`, {
     status,
@@ -79,7 +93,7 @@ export const updateDeviceStatus = async (id, status, updated_by) => {
   return res.data;
 };
 
-// ✅ 6️⃣ Get recent police updates
+// ✅ 8️⃣ Get recent Police Updates (for Police Dashboard)
 export const getRecentPoliceUpdates = async () => {
   const res = await API.get("/admin/police-updates");
   return res.data;
