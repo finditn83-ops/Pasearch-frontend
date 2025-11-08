@@ -8,7 +8,7 @@ import { clearAuth } from "./utils/auth";
 // ✅ Base URL (auto-detects environment)
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
-  timeout: 15000, // 15 seconds timeout
+  timeout: 15000,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -31,7 +31,6 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-
     if (status === 401) {
       toast.error("Session expired. Please log in again.");
       clearAuth();
@@ -39,7 +38,6 @@ API.interceptors.response.use(
     } else if (status >= 500) {
       toast.error("Server error. Please try again later.");
     }
-
     return Promise.reject(error);
   }
 );
@@ -60,10 +58,29 @@ export const login = async (data) => {
   return res.data;
 };
 
+// ✅ 3️⃣ Forgot Password
+export const forgotPassword = async (email) => {
+  const res = await API.post("/auth/forgot-password", { email });
+  return res.data;
+};
+
+// ✅ 4️⃣ Verify OTP
+export const verifyOTP = async (email, otp) => {
+  const res = await API.post("/auth/verify-otp", { email, otp });
+  return res.data;
+};
+
+// ✅ 5️⃣ Reset Password
+export const resetPassword = async (email, newPassword) => {
+  const res = await API.post("/auth/reset-password", { email, newPassword });
+  return res.data;
+};
+
+
 // ✅ 3️⃣ Get Device by IMEI
 export const getDeviceByImei = async (imei) => {
   const res = await API.get(`/devices/${imei}`);
-  return res.data; // ensure only data is returned
+  return res.data;
 };
 
 // ✅ 4️⃣ Report Lost Device
@@ -72,7 +89,7 @@ export const reportDevice = async (data) => {
   return res.data;
 };
 
-// ✅ 5️⃣ Track Device (used by reporters or trackers)
+// ✅ 5️⃣ Track Device
 export const trackDevice = async (data) => {
   const res = await API.post("/track-device", data);
   return res.data;
@@ -93,7 +110,7 @@ export const updateDeviceStatus = async (id, status, updated_by) => {
   return res.data;
 };
 
-// ✅ 8️⃣ Get recent Police Updates (for Police Dashboard)
+// ✅ 8️⃣ Get Recent Police Updates (for Police Dashboard)
 export const getRecentPoliceUpdates = async () => {
   const res = await API.get("/admin/police-updates");
   return res.data;
