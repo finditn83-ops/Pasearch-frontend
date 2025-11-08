@@ -25,11 +25,20 @@ import { isLoggedIn, getCurrentUser } from "./api";
 // 🔐 Private Route Wrapper
 // ==============================
 function PrivateRoute({ children, roles }) {
-  if (!isLoggedIn()) return <Navigate to="/login" replace />;
-
+  const loggedIn = isLoggedIn();
   const user = getCurrentUser();
-  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
 
+  // 🧩 If not logged in → redirect to login
+  if (!loggedIn || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // 🧩 Role not allowed → redirect to home
+  if (roles && !roles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  // ✅ Authorized → render child route
   return children;
 }
 

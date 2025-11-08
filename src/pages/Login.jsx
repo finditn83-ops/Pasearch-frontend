@@ -1,5 +1,5 @@
 // ==============================
-// 🔐 Login Page — Pasearch
+// 🔐 Login Page — Pasearch (with LoginActivity logging)
 // ==============================
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
@@ -13,7 +13,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ Backend check
+  // ✅ Backend health check
   useEffect(() => {
     const api = import.meta.env.VITE_API_URL || "http://localhost:5000";
     fetch(`${api}/api/health`)
@@ -22,9 +22,7 @@ export default function Login() {
         if (data.ok) setBackendStatus("✅ Backend Connected");
         else setBackendStatus("⚠️ Unexpected response");
       })
-      .catch(() => {
-        setBackendStatus("❌ Backend Offline or CORS blocked");
-      });
+      .catch(() => setBackendStatus("❌ Backend Offline or CORS blocked"));
   }, []);
 
   // ✅ Login handler
@@ -40,22 +38,52 @@ export default function Login() {
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
       const res = await axios.post(`${API_URL}/auth/login`, { username, password });
-
       const data = res.data;
+
+      // ✅ Unified auth object
+      const authData = {
+        token: data.token,
+        user: {
+          id: data.user?.id,
+          name: data.user?.name || data.username,
+          username: data.user?.username || username,
+          email: data.user?.email,
+          role: data.user?.role || data.role,
+        },
+      };
+      localStorage.setItem("auth", JSON.stringify(authData));
+
+      // ✅ Save ISO login timestamp for dashboard
+      const now = new Date();
+      localStorage.setItem("lastLogin", now.toISOString());
+
+      // 🌍 Log login activity to backend for Google Sheets
+      try {
+        const ipRes = await fetch("https://ipapi.co/json/");
+        const ipData = await ipRes.json();
+        const city = ipData.city || "Unknown";
+        const country = ipData.country_name || "Unknown";
+        const ip = ipData.ip || "N/A";
+        const localTime = now.toLocaleString();
+        const utcTime = now.toUTCString();
+
+        await axios.post(`${API_URL}/log-login`, {
+          username: authData.user.username,
+          role: authData.user.role,
+          city,
+          country,
+          ip,
+          localTime,
+          utcTime,
+        });
+      } catch (err) {
+        console.warn("⚠️ Login logging skipped:", err.message);
+      }
+
       toast.success("Login successful!");
 
-      // ✅ Store token and user info
-      localStorage.setItem(
-        "auth",
-        JSON.stringify({
-          token: data.token,
-          role: data.role || data.user?.role,
-          username: data.username || data.user?.username,
-        })
-      );
-
-      // ✅ Navigate based on role
-      const role = data.role || data.user?.role;
+      // ✅ Redirect by role
+      const role = authData.user.role;
       if (role === "admin") navigate("/admin/dashboard");
       else if (role === "police") navigate("/police/dashboard");
       else if (role === "reporter") navigate("/report");
@@ -64,7 +92,7 @@ export default function Login() {
         navigate("/");
       }
     } catch (err) {
-      console.error("Login failed:", err);
+      console.error("❌ Login failed:", err);
       toast.error(err.response?.data?.error || "Invalid username or password.");
     } finally {
       setLoading(false);
@@ -73,12 +101,12 @@ export default function Login() {
 
   // ✅ UI
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-blue-300 p-4">
       <div className="bg-white text-gray-900 shadow-2xl rounded-2xl p-8 w-full max-w-md">
         {/* ===== Header ===== */}
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-blue-600 mb-1">
-            👋 Welcome Back to Pasearch
+            👋 Welcome Back to PASEARCH
           </h1>
           <p className="text-gray-500 text-sm">{backendStatus}</p>
         </div>
@@ -101,7 +129,7 @@ export default function Login() {
               onChange={(e) => setUsername(e.target.value)}
               required
               autoComplete="username"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
             />
           </div>
 
@@ -121,7 +149,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
             />
           </div>
 
@@ -129,7 +157,9 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-all duration-200"
+            className={`w-full ${
+              loading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
+            } text-white py-2 rounded-lg font-semibold transition-all`}
           >
             {loading ? "Logging in..." : "Login"}
           </button>

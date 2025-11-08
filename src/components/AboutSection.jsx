@@ -25,7 +25,7 @@ export default function AboutSection() {
           dedicated to helping individuals recover lost or stolen phones,
           laptops and smart TVs. By collaborating with local authorities,
           telecom providers and community members, Device Tracker enables a
-          faster, more transparent and effective recovery process — empowering
+          faster more transparent and effective recovery process — empowering
           users to protect what matters most.
         </p>
 
