@@ -6,10 +6,13 @@ import { verifyOTP } from "../api";
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState("");
-  const { email } = useParams(); // If your route includes /verify/:email
+  const { email } = useParams(); // Optional route param: /verify/:email
   const { loading, setLoading } = useLoading();
   const navigate = useNavigate();
 
+  // =============================================================
+  // 🔐 Handle OTP Verification
+  // =============================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -24,17 +27,20 @@ export default function VerifyOTP() {
       toast.success("Verification successful! You can now log in.");
       navigate("/");
     } catch (err) {
-      console.error(err);
+      console.error("OTP verification error:", err);
       toast.error("Invalid or expired OTP. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // =============================================================
+  // 🖼️ Render
+  // =============================================================
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-md mx-auto bg-white shadow-md p-6 rounded-lg mt-8"
+      className="max-w-md mx-auto bg-white shadow-md p-6 rounded-lg mt-12"
     >
       <h2 className="text-2xl font-semibold text-center text-blue-700 mb-4">
         Verify OTP
@@ -61,17 +67,21 @@ export default function VerifyOTP() {
           onChange={(e) => setOtp(e.target.value)}
           required
           placeholder="Enter your 6-digit OTP"
-          className="w-full p-2 border rounded-md text-center tracking-widest focus:ring-2 focus:ring-blue-500"
+          className="w-full p-2 border rounded-md text-center tracking-widest focus:ring focus:ring-blue-300 focus:outline-none"
           autoComplete="one-time-code"
           maxLength={6}
         />
       </div>
 
-      {/* Submit */}
+      {/* Submit Button */}
       <button
         type="submit"
         disabled={loading}
-        className="w-full mt-4 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+        className={`w-full mt-4 py-2 rounded-md text-white font-medium ${
+          loading
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-blue-600 hover:bg-blue-700"
+        }`}
       >
         {loading ? "Verifying..." : "Verify OTP"}
       </button>

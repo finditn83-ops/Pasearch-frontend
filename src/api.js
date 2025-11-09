@@ -134,6 +134,19 @@ export const updatePoliceCase = async (id, data) => {
 };
 
 // =============================================================
+// 🤖 7️⃣ Ask AI (Pasearch Assistant)
+// =============================================================
+export const askAI = async (message, role = "user") => {
+  try {
+    const res = await API.post("/assistant", { message, role });
+    return res.data; // expect { reply: "...", role: "assistant" }
+  } catch (err) {
+    console.error("❌ askAI error:", err.response?.data || err.message);
+    throw err;
+  }
+};
+
+// =============================================================
 // ✅ Export Axios instance
 // =============================================================
 export default API;

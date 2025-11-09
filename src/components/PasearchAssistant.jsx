@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { askAI, getCurrentUser } from "../api";
+import { askAI } from "../api";
+import { getCurrentUser } from "../utils/auth";
 
 export default function PasearchAssistant() {
   const [open, setOpen] = useState(false);
