@@ -1,119 +1,152 @@
-import React, { useState, useEffect } from "react";
-import { askAI } from "../api";
-import { getCurrentUser } from "../utils/auth";
+// ===========================================
+// 🤖 PASEARCH AI Assistant — Smart + Voice Enabled
+// ===========================================
+import React, { useEffect, useState } from "react";
+import API from "../api";
+import { toast } from "react-toastify";
+import { Send, Volume2 } from "lucide-react";
 
 export default function PasearchAssistant() {
-  const [open, setOpen] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => {
+    // 🧠 Load chat history from localStorage (if any)
+    const saved = localStorage.getItem("pasearch_chat");
+    return saved
+      ? JSON.parse(saved)
+      : [
+          {
+            sender: "ai",
+            text: "👋 Hello! I’m PASEARCH AI — your cyber recovery assistant. You can ask me about lost devices, IMEI updates, or recovery advice.",
+          },
+        ];
+  });
+
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState(null);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
 
+  // 🧠 Save chat history on change
   useEffect(() => {
-    const u = getCurrentUser();
-    if (u) setUser(u);
-  }, []);
+    localStorage.setItem("pasearch_chat", JSON.stringify(messages.slice(-10))); // keep last 10
+  }, [messages]);
 
-  const handleSend = async () => {
-    if (!prompt.trim()) return;
+  // 🗣️ Speak using browser’s built-in SpeechSynthesis API
+  const speak = (text) => {
+    if (!ttsEnabled || !window.speechSynthesis) return;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    utter.rate = 1;
+    utter.pitch = 1;
+    utter.volume = 1;
+    window.speechSynthesis.speak(utter);
+  };
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const userMsg = { sender: "user", text: input };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
     setLoading(true);
 
-    const userMsg = { role: "user", content: prompt };
-    setMessages((prev) => [...prev, userMsg]);
-    setPrompt("");
-
     try {
-      const systemContext = `You are PasearchAI, an assistant inside the Pasearch platform. The current user is ${
-        user?.username || "Guest"
-      } and their role is ${user?.role || "unknown"}.
-      Respond helpfully based on their role.
-      - For reporters: guide them on how to report, track, and recover lost devices.
-      - For police: help them verify IMEIs, cross-check tracking logs, or assist in investigations.
-      - For admins: help them manage reports, oversee users, and monitor the system health.`;
+      const res = await API.post("/ai/ask", { query: input });
+      const reply =
+        res.data?.answer ||
+        "I couldn’t find updated data, but I’ll continue learning from global sources.";
 
-      const reply = await askAI(`${systemContext}\n\nUser: ${prompt}`);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: reply },
-      ]);
+      const aiMsg = { sender: "ai", text: reply };
+      setMessages((prev) => [...prev, aiMsg]);
+      speak(reply);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "⚠️ Sorry — I couldn’t reach the AI service right now. Please try again later.",
-        },
-      ]);
+      console.error(err);
+      toast.error("AI Assistant failed to respond.");
     } finally {
       setLoading(false);
     }
   };
 
+  // 🧠 Optional: clear chat
+  const clearChat = () => {
+    localStorage.removeItem("pasearch_chat");
+    setMessages([
+      {
+        sender: "ai",
+        text: "🧹 Chat cleared. How can I assist you now?",
+      },
+    ]);
+  };
+
   return (
-    <div className="fixed bottom-4 right-4 z-50">
-      {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700"
-        >
-          💬
-        </button>
-      )}
-
-      {open && (
-        <div className="w-80 h-96 bg-white shadow-2xl rounded-2xl border flex flex-col">
-          <div className="flex justify-between items-center bg-blue-600 text-white p-3 rounded-t-2xl">
-            <span className="font-semibold">Pasearch Assistant</span>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-white hover:text-gray-200"
-            >
-              ✖
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {messages.length === 0 && (
-              <p className="text-gray-500 text-sm text-center mt-10">
-                👋 Hello {user?.username || "there"} — how can I help you today?
-              </p>
-            )}
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`p-2 rounded-lg text-sm ${
-                  msg.role === "user"
-                    ? "bg-blue-100 self-end ml-auto max-w-[80%]"
-                    : "bg-gray-100 self-start mr-auto max-w-[80%]"
-                }`}
-              >
-                {msg.content}
-              </div>
-            ))}
-            {loading && (
-              <p className="text-gray-400 text-sm italic">Thinking...</p>
-            )}
-          </div>
-
-          <div className="border-t p-2 flex">
-            <input
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Type your message..."
-              className="flex-1 border rounded-l-lg p-2 text-sm focus:outline-none"
-            />
-            <button
-              onClick={handleSend}
-              disabled={loading}
-              className="bg-blue-600 text-white px-3 rounded-r-lg hover:bg-blue-700"
-            >
-              Send
-            </button>
-          </div>
+    <div className="mt-8 bg-white shadow-lg rounded-lg p-4 flex flex-col h-[500px]">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-lg font-semibold text-blue-700">
+          🤖 PASEARCH AI Assistant
+        </h2>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setTtsEnabled(!ttsEnabled)}
+            title="Toggle voice"
+            className={`p-2 rounded ${
+              ttsEnabled ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"
+            }`}
+          >
+            <Volume2 size={18} />
+          </button>
+          <button
+            onClick={clearChat}
+            className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded hover:bg-red-200"
+          >
+            Clear
+          </button>
         </div>
-      )}
+      </div>
+
+      {/* Chat window */}
+      <div className="flex-1 overflow-y-auto border rounded-lg p-3 bg-gray-50 mb-3">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`my-2 ${
+              msg.sender === "ai" ? "text-left" : "text-right"
+            }`}
+          >
+            <div
+              className={`inline-block px-3 py-2 rounded-lg ${
+                msg.sender === "ai"
+                  ? "bg-blue-100 text-gray-900"
+                  : "bg-green-100 text-gray-800"
+              }`}
+            >
+              {msg.text}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="text-gray-500 text-sm italic mt-2">
+            PASEARCH AI is thinking...
+          </div>
+        )}
+      </div>
+
+      {/* Input form */}
+      <form onSubmit={handleSend} className="flex items-center gap-2">
+        <input
+          type="text"
+          placeholder="Ask about your device, IMEI, or cyber recovery..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          className="flex-1 border rounded-lg p-2 text-sm focus:ring focus:ring-blue-300"
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+        >
+          <Send size={16} />
+          Send
+        </button>
+      </form>
     </div>
   );
 }
