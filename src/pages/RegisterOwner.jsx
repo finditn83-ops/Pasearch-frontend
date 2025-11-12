@@ -94,25 +94,27 @@ export default function RegisterOwner() {
         />
       </div>
 
-      {/* Phone */}
-      <div className="mt-3">
-        <label
-          htmlFor="phone"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Phone Number
-        </label>
-        <input
-          id="phone"
-          name="phone"
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="Enter phone number (optional)"
-          className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-          autoComplete="tel"
-        />
-      </div>
+{/* Phone */}
+<div className="mt-3">
+  <label
+    htmlFor="phone"
+    className="block text-sm font-medium text-gray-700 mb-1"
+  >
+    Phone Number
+  </label>
+  <input
+    id="phone"
+    name="phone"
+    type="tel"
+    value={phone}
+    onChange={(e) => setPhone(e.target.value)}
+    placeholder="Enter phone number (optional)"
+    pattern="^[0-9+\s-]{7,15}$"
+    title="Phone number (7–15 digits, can include +, -, or spaces)"
+    autoComplete="tel"
+    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  />
+</div>
 
       {/* Password */}
       <div className="mt-3">
