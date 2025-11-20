@@ -6,19 +6,26 @@ import {
   Navigate,
 } from "react-router-dom";
 
+// Context
 import { AuthProvider, useAuth } from "./auth/AuthContext.jsx";
+
+// Layouts
 import DashboardLayout from "./layouts/DashboardLayout.jsx";
 
+// Pages
 import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
 import ReporterDashboard from "./pages/ReporterDashboard.jsx";
 import PoliceDashboard from "./pages/PoliceDashboard.jsx";
-import AdminDashboard from "./pages/AdminDashboard.jsx"; // Admin page
+import AdminDashboard from "./pages/AdminDashboard.jsx";
+import LiveMap from "./pages/LiveMap.jsx"; // ⭐ NEW – live tracking map
 
-// Protect routes — only authenticated users
+// Protected route wrapper
 function ProtectedRoute({ children }) {
   const { auth } = useAuth();
-  if (!auth?.token) return <Navigate to="/login" replace />;
+  if (!auth?.token) {
+    return <Navigate to="/login" replace />;
+  }
   return children;
 }
 
@@ -27,7 +34,6 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -41,7 +47,8 @@ function App() {
               </ProtectedRoute>
             }
           >
-            {/* Default dashboard = reporter */}
+
+            {/* Default — Reporter Dashboard */}
             <Route index element={<ReporterDashboard />} />
 
             {/* Reporter */}
@@ -50,11 +57,14 @@ function App() {
             {/* Police */}
             <Route path="police" element={<PoliceDashboard />} />
 
+            {/* 🔴 NEW: Live GPS Map */}
+            <Route path="map" element={<LiveMap />} />
+
             {/* Admin */}
             <Route path="admin" element={<AdminDashboard />} />
           </Route>
 
-          {/* Catch-all fallback */}
+          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
