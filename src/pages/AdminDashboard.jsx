@@ -1,225 +1,105 @@
-// =============================================================
-// 🧭 PASEARCH AdminDashboard — Unified Control Center
-// =============================================================
-import React, { useEffect, useState, useRef } from "react";
-import io from "socket.io-client";
-import { toast } from "react-toastify";
-import { getDeviceByImei, updateDeviceStatus } from "../api";
-import MultiMapView from "../components/MultiMapView";
-import PasearchAssistant from "../components/PasearchAssistant";
-import CyberIntelFeed from "../components/CyberIntelFeed";
+import React, { useEffect, useState } from "react";
+import API from "../api.js";
 
-const SOCKET_URL =
-  import.meta.env.VITE_API_URL || "https://pasearch-backend.onrender.com";
+function AdminDashboard() {
+  const [users, setUsers] = useState([]);
+  const [devices, setDevices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-export default function AdminDashboard() {
-  // =============================================================
-  // 📦 STATE MANAGEMENT
-  // =============================================================
-  const [imei, setImei] = useState("");
-  const [device, setDevice] = useState(null);
-  const [trackingData, setTrackingData] = useState([]);
-  const [socketConnected, setSocketConnected] = useState(false);
-  const [status, setStatus] = useState("");
-  const [updating, setUpdating] = useState(false);
-
-  const auth = JSON.parse(localStorage.getItem("auth") || "null");
-  const adminName = auth?.user?.name || auth?.user?.username || "Admin";
-
-  // =============================================================
-  // 📡 SOCKET.IO REAL-TIME CONNECTION
-  // =============================================================
   useEffect(() => {
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket"],
-      reconnection: true,
-      reconnectionDelay: 1000,
-    });
-
-    socket.on("connect", () => {
-      setSocketConnected(true);
-      console.log("✅ Connected:", socket.id);
-    });
-
-    socket.on("disconnect", () => {
-      setSocketConnected(false);
-      console.warn("⚠️ Socket disconnected");
-    });
-
-    // 🔴 Device movement updates
-    socket.on("tracking_update", (data) => {
-      console.log("📡 Live update:", data);
-      setTrackingData((prev) => {
-        const idx = prev.findIndex((d) => d.imei === data.imei);
-        if (idx !== -1) {
-          const updated = [...prev];
-          const device = updated[idx];
-          const newPoint = {
-            latitude: data.latitude,
-            longitude: data.longitude,
-            trackedAt: data.trackedAt,
-          };
-          const updatedPath = [...(device.pathHistory || []), newPoint].slice(-20);
-          updated[idx] = { ...device, ...data, pathHistory: updatedPath };
-          return updated;
-        } else {
-          return [
-            {
-              ...data,
-              pathHistory: [
-                { latitude: data.latitude, longitude: data.longitude, trackedAt: data.trackedAt },
-              ],
-            },
-            ...prev,
-          ].slice(0, 50);
-        }
-      });
-      toast.info(`📍 ${data.imei} moved to ${data.address || "Unknown"}`);
-    });
-
-    // ⚠️ Frozen or locked alert
-    socket.on("device_frozen", (data) =>
-      toast.warning(`⚠️ Device ${data.imei} appears frozen or locked`)
-    );
-
-    return () => socket.disconnect();
+    loadData();
   }, []);
 
-  // =============================================================
-  // 🔍 LOOKUP DEVICE BY IMEI
-  // =============================================================
-  const handleLookup = async (e) => {
-    e.preventDefault();
-    if (!imei.trim()) return toast.warn("Enter IMEI first");
+  async function loadData() {
     try {
-      const res = await getDeviceByImei(imei.trim());
-      setDevice(res.data || res);
-      toast.success("Device found");
-    } catch {
-      setDevice(null);
-      toast.error("Device not found");
-    }
-  };
+      const resUsers = await API.get("/admin/users");
+      const resDevices = await API.get("/admin/devices");
 
-  // =============================================================
-  // 🔧 UPDATE DEVICE STATUS
-  // =============================================================
-  const handleStatusUpdate = async () => {
-    if (!device) return toast.warn("Search a device first");
-    if (!status) return toast.warn("Select a status");
-    setUpdating(true);
-    try {
-      await updateDeviceStatus(device.id, status, adminName);
-      toast.success(`Device marked ${status}`);
-      setDevice({ ...device, status });
-    } catch {
-      toast.error("Failed to update status");
-    } finally {
-      setUpdating(false);
+      setUsers(resUsers.data.users || []);
+      setDevices(resDevices.data.devices || []);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load admin data.");
+      setLoading(false);
     }
-  };
+  }
 
-  // =============================================================
-  // 🖥️ UI RENDER
-  // =============================================================
+  if (loading) return <div className="text-center p-6 text-slate-500">Loading admin panel...</div>;
+
   return (
-    <div className="p-6 bg-gray-100 min-h-screen space-y-6">
-      <h1 className="text-3xl font-bold text-blue-700">
-        🧭 PASEARCH Admin Dashboard
-      </h1>
+    <div className="space-y-6">
 
-      {/* Connection indicator */}
-      <div
-        className={`inline-block px-3 py-1 rounded-full text-sm ${
-          socketConnected ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-        }`}
-      >
-        {socketConnected ? "🟢 Live Connected" : "🔴 Disconnected"}
-      </div>
+      {/* Page Title */}
+      <h2 className="text-xl font-semibold text-slate-800">
+        Admin Dashboard
+      </h2>
 
-      {/* ============================== */}
-      {/* IMEI LOOKUP SECTION */}
-      {/* ============================== */}
-      <form onSubmit={handleLookup} className="flex gap-2 items-center">
-        <input
-          type="text"
-          value={imei}
-          onChange={(e) => setImei(e.target.value)}
-          placeholder="Enter IMEI number"
-          className="flex-1 border border-gray-300 rounded px-3 py-2"
-        />
-        <button
-          type="submit"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-        >
-          Search
-        </button>
-      </form>
-
-      {/* ============================== */}
-      {/* DEVICE INFO */}
-      {/* ============================== */}
-      {device && (
-        <div className="bg-white shadow rounded-lg p-4">
-          <h2 className="text-xl font-semibold text-blue-700 mb-3">
-            Device Information
-          </h2>
-          <p>
-            <strong>Type:</strong> {device.device_type} ({device.color})
-          </p>
-          <p>
-            <strong>Reporter:</strong> {device.reporter_email}
-          </p>
-          <p>
-            <strong>Location:</strong> {device.location_area}
-          </p>
-          <p>
-            <strong>Status:</strong>{" "}
-            <span className="font-semibold text-green-700">
-              {device.status || "Unknown"}
-            </span>
-          </p>
-
-          <div className="mt-3 flex items-center gap-3">
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="border rounded px-3 py-2"
-            >
-              <option value="">-- Select Status --</option>
-              <option value="Recovered">✅ Recovered</option>
-              <option value="Lost">❌ Lost</option>
-              <option value="Under Investigation">🕵️ Under Investigation</option>
-            </select>
-            <button
-              onClick={handleStatusUpdate}
-              disabled={updating}
-              className={`${
-                updating ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"
-              } text-white px-4 py-2 rounded`}
-            >
-              {updating ? "Updating..." : "Update Status"}
-            </button>
-          </div>
+      {error && (
+        <div className="bg-red-100 text-red-700 px-4 py-2 rounded border border-red-300">
+          {error}
         </div>
       )}
 
-      {/* ============================== */}
-      {/* LIVE MAP SECTION */}
-      {/* ============================== */}
-      {trackingData.length > 0 ? (
-        <MultiMapView devices={trackingData} />
-      ) : (
-        <p className="text-gray-500">Waiting for live tracking data...</p>
-      )}
+      {/* Users List */}
+      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+        <h3 className="font-semibold mb-3 text-slate-700">Registered Users</h3>
 
-      {/* ============================== */}
-      {/* AI + INTELLIGENCE SECTION */}
-      {/* ============================== */}
-      <div className="grid md:grid-cols-2 gap-6 mt-6">
-        <PasearchAssistant />
-        <CyberIntelFeed />
+        <table className="w-full text-sm border border-slate-200">
+          <thead>
+            <tr className="bg-slate-100 border-b border-slate-300">
+              <th className="px-2 py-1">ID</th>
+              <th className="px-2 py-1">Username</th>
+              <th className="px-2 py-1">Email</th>
+              <th className="px-2 py-1">Role</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id} className="border-b border-slate-200">
+                <td className="px-2 py-1">{u.id}</td>
+                <td className="px-2 py-1">{u.username}</td>
+                <td className="px-2 py-1">{u.email}</td>
+                <td className="px-2 py-1 capitalize">{u.role}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+
+      {/* Devices Section */}
+      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+        <h3 className="font-semibold mb-3 text-slate-700">Reported Devices</h3>
+
+        <table className="w-full text-sm border border-slate-200">
+          <thead>
+            <tr className="bg-slate-100 border-b border-slate-300">
+              <th className="px-2 py-1">ID</th>
+              <th className="px-2 py-1">IMEI</th>
+              <th className="px-2 py-1">Type</th>
+              <th className="px-2 py-1">Status</th>
+              <th className="px-2 py-1">Reporter</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {devices.map((d) => (
+              <tr key={d.id} className="border-b border-slate-200">
+                <td className="px-2 py-1">{d.id}</td>
+                <td className="px-2 py-1">{d.imei}</td>
+                <td className="px-2 py-1">{d.device_type}</td>
+                <td className="px-2 py-1 capitalize">{d.status}</td>
+                <td className="px-2 py-1">{d.reporter_email}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
     </div>
   );
 }
+
+export default AdminDashboard;

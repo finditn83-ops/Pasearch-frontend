@@ -1,221 +1,95 @@
-// ============================================================
-// 🧭 DashboardLayout.jsx — Global Dashboard Shell (Responsive + Smart)
-// Shows user info, local/UTC time, IP, and provides topbar + sidebar
-// ============================================================
-import React, { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { clearAuth, getCurrentUser } from "../utils/auth";
-import { toast } from "react-toastify";
-import { Menu, X, LogOut } from "lucide-react";
-import PasearchAssistant from "../components/PasearchAssistant";
+import React from "react";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext.jsx";
 
-export default function DashboardLayout({ children }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [lastLoginLocal, setLastLoginLocal] = useState(null);
-  const [lastLoginUTC, setLastLoginUTC] = useState(null);
-  const [ipInfo, setIpInfo] = useState(null);
-  const user = getCurrentUser();
+function DashboardLayout() {
+  const { auth, logout } = useAuth();
   const navigate = useNavigate();
 
-  // 🧠 Load and format last login (Local + UTC)
-  useEffect(() => {
-    const stored = localStorage.getItem("lastLogin");
-    if (stored) {
-      try {
-        const date = new Date(stored);
-        const localFormatted = new Intl.DateTimeFormat("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }).format(date);
-        const utcFormatted = new Intl.DateTimeFormat("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-          timeZone: "UTC",
-        }).format(date);
-        setLastLoginLocal(localFormatted);
-        setLastLoginUTC(utcFormatted);
-      } catch {
-        setLastLoginLocal(stored);
-      }
-    }
-  }, []);
-
-  // 🌍 Fetch public IP and approximate location
-  useEffect(() => {
-    fetch("https://ipapi.co/json/")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.ip) {
-          const info = `${data.city || "Unknown City"} • ${
-            data.country_name || "Unknown Country"
-          }`;
-          setIpInfo(info);
-          localStorage.setItem("ipInfo", info);
-        }
-      })
-      .catch(() => {
-        const stored = localStorage.getItem("ipInfo");
-        if (stored) setIpInfo(stored);
-      });
-  }, []);
-
-  // 🚦 Redirect if not logged in
-  useEffect(() => {
-    if (!user) {
-      toast.warn("Please log in to continue.");
-      navigate("/login", { replace: true });
-    }
-  }, [user, navigate]);
-
-  // 🚪 Logout handler
   const handleLogout = () => {
-    clearAuth();
-    localStorage.removeItem("lastLogin");
-    localStorage.removeItem("ipInfo");
-    toast.success("Logged out successfully!");
-    navigate("/login", { replace: true });
+    logout();
+    navigate("/login");
   };
 
-  // 🧭 Sidebar menu by role
-  const menu = {
-    admin: [
-      { label: "Dashboard", path: "/admin/dashboard" },
-      { label: "Device Lookup", path: "/device/lookup" },
-      { label: "Logout", action: handleLogout },
-    ],
-    police: [
-      { label: "Search Devices", path: "/police/dashboard" },
-      { label: "Device Lookup", path: "/device/lookup" },
-      { label: "Logout", action: handleLogout },
-    ],
-    reporter: [
-      { label: "Report Device", path: "/report" },
-      { label: "Device Lookup", path: "/device/lookup" },
-      { label: "Logout", action: handleLogout },
-    ],
-  };
+  const role = auth?.user?.role || "reporter";
 
-  const links = menu[user?.role] || [];
-
-  // 🖼️ Layout render
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* ================= Sidebar ================= */}
-      <aside
-        className={`${
-          menuOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0 fixed md:static top-0 left-0 z-40 w-64 bg-blue-700 text-white flex flex-col shadow-lg transition-transform duration-300`}
-      >
-        {/* Header / Brand */}
-        <div className="flex items-center justify-between md:justify-center px-4 py-4 border-b border-blue-500">
-          <h1 className="text-xl font-bold tracking-wide">PASEARCH</h1>
-          <button
-            onClick={() => setMenuOpen(false)}
-            className="md:hidden text-white"
-          >
-            <X size={22} />
-          </button>
+    <div className="min-h-screen bg-slate-100 flex">
+      {/* Sidebar */}
+      <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col">
+        <div className="px-4 py-4 border-b border-slate-800">
+          <Link to="/" className="flex items-center gap-2">
+            <span className="text-lg font-bold">PASEARCH</span>
+          </Link>
+          <p className="text-xs text-slate-400 mt-1">
+            Device Recovery & Intelligence
+          </p>
         </div>
 
-        {/* Sidebar Links */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-          {links.map((item, i) =>
-            item.action ? (
-              <button
-                key={i}
-                onClick={item.action}
-                className="block w-full text-left px-3 py-2 rounded-lg hover:bg-blue-600 transition"
-              >
-                {item.label}
-              </button>
-            ) : (
-              <Link
-                key={i}
-                to={item.path}
-                className="block px-3 py-2 rounded-lg hover:bg-blue-600 transition"
-                onClick={() => setMenuOpen(false)}
-              >
-                {item.label}
-              </Link>
-            )
+        <nav className="flex-1 px-2 py-4 space-y-1">
+          <NavItem to="/" label="Overview" />
+          <NavItem to="/reporter" label="Report Device" />
+          {(role === "police" || role === "admin") && (
+            <NavItem to="/police" label="Police Tools" />
           )}
+          {role === "admin" && <NavItem to="/admin" label="Admin Panel" />}
         </nav>
 
-        {/* Footer Info */}
-        <div className="p-3 border-t border-blue-500 text-sm text-center bg-blue-800">
-          {user ? (
-            <>
-              <div>
-                Logged in as <b>{user.name || user.username}</b>
-              </div>
-              <div className="text-xs text-gray-200 italic">{user.role}</div>
-
-              {lastLoginLocal && (
-                <div className="text-[11px] text-gray-300 mt-1 leading-tight">
-                  🕒 <b>Local:</b> {lastLoginLocal.replace(",", " •")}
-                </div>
-              )}
-              {lastLoginUTC && (
-                <div className="text-[11px] text-gray-300 mt-1 leading-tight">
-                  🌐 <b>UTC:</b> {lastLoginUTC.replace(",", " •")}
-                </div>
-              )}
-              {ipInfo && (
-                <div className="text-[11px] text-gray-400 mt-1 leading-tight">
-                  🌍 {ipInfo}
-                </div>
-              )}
-            </>
-          ) : (
-            <span>Guest</span>
-          )}
+        <div className="px-4 py-4 border-t border-slate-800 text-xs text-slate-400">
+          <div className="mb-2">
+            <div className="font-semibold text-slate-200 text-sm">
+              {auth?.user?.username}
+            </div>
+            <div className="capitalize">{role}</div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full text-left text-red-300 hover:text-red-200 text-sm"
+          >
+            Logout
+          </button>
         </div>
       </aside>
 
-      {/* ================= Main Area ================= */}
-      <div className="flex-1 flex flex-col">
-        {/* Top Navbar */}
-        <header className="bg-white shadow-sm flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="md:hidden text-blue-700"
-            >
-              <Menu size={24} />
-            </button>
-            <h2 className="text-lg font-semibold text-blue-700">
-              {user?.role ? `${user.role.toUpperCase()} PANEL` : "Dashboard"}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="hidden md:block text-sm text-gray-600">
-              Welcome, <strong>{user?.username || "User"}</strong>
+      {/* Main content */}
+      <main className="flex-1 flex flex-col">
+        {/* Topbar */}
+        <header className="h-14 bg-white border-b border-slate-200 flex items-center px-6 justify-between">
+          <div className="text-sm text-slate-600">
+            Backend:{" "}
+            <span className="font-mono bg-slate-100 px-2 py-1 rounded">
+              {import.meta.env.VITE_API_URL || "http://localhost:5000"}
             </span>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm transition"
-            >
-              <LogOut size={16} /> Logout
-            </button>
+          </div>
+          <div className="text-xs text-slate-400">
+            PASEARCH MVP • IMEI & Account-based Matching
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 p-4 relative">
-          {children}
-          {/* 💬 Pasearch AI Assistant */}
-          <PasearchAssistant />
-        </main>
-      </div>
+        <section className="p-6 flex-1 overflow-y-auto">
+          <Outlet />
+        </section>
+      </main>
     </div>
   );
 }
+
+function NavItem({ to, label }) {
+  return (
+    <NavLink
+      to={to}
+      end
+      className={({ isActive }) =>
+        `block px-3 py-2 rounded text-sm ${
+          isActive
+            ? "bg-slate-800 text-white"
+            : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
+        }`
+      }
+    >
+      {label}
+    </NavLink>
+  );
+}
+
+export default DashboardLayout;
