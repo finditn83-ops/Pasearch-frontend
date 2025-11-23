@@ -1,0 +1,93 @@
+import React, { useEffect, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import API from "../api.js";
+
+// Fix Leaflet marker icon issue
+const markerIcon = new L.Icon({
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+// ==============================
+//  LIVE MAP COMPONENT
+// ==============================
+function LiveMap() {
+  const [location, setLocation] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [errMsg, setErrMsg] = useState("");
+
+  // -----------------------------------------------------
+  // Fetch latest GPS location from backend
+  // -----------------------------------------------------
+  const loadLocation = async () => {
+    try {
+      const res = await API.get("/pasearch-ai/latest-location");
+      setLocation(res.data || null);
+      setErrMsg("");
+    } catch (err) {
+      console.error(err);
+      setErrMsg("Unable to load GPS location.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch immediately + auto-refresh every 10 seconds
+  useEffect(() => {
+    loadLocation();
+    const interval = setInterval(() => loadLocation(), 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="p-4 space-y-4">
+      <h2 className="text-lg font-semibold text-slate-800">
+        Live Location Tracking
+      </h2>
+
+      {loading && <p className="text-slate-600 text-sm">Loading map…</p>}
+
+      {errMsg && (
+        <div className="text-red-700 bg-red-100 border border-red-300 p-2 rounded text-xs">
+          {errMsg}
+        </div>
+      )}
+
+      {!location ? (
+        <p className="text-slate-500 text-sm">
+          No location available yet. The device has not sent GPS coordinates.
+        </p>
+      ) : (
+        <div className="h-[450px] w-full border rounded-lg shadow overflow-hidden">
+          <MapContainer
+            center={[location.lat, location.lng]}
+            zoom={15}
+            style={{ height: "100%", width: "100%" }}
+          >
+            {/* Map tiles */}
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+
+            {/* GPS Marker */}
+            <Marker position={[location.lat, location.lng]} icon={markerIcon}>
+              <Popup>
+                <div className="text-xs">
+                  <p><strong>Last Seen:</strong> {location.timestamp}</p>
+                  <p><strong>Latitude:</strong> {location.lat}</p>
+                  <p><strong>Longitude:</strong> {location.lng}</p>
+                </div>
+              </Popup>
+            </Marker>
+          </MapContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default LiveMap;

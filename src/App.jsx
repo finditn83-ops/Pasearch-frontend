@@ -18,7 +18,7 @@ import RegisterPage from "./pages/RegisterPage.jsx";
 import ReporterDashboard from "./pages/ReporterDashboard.jsx";
 import PoliceDashboard from "./pages/PoliceDashboard.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
-import LiveMap from "./pages/LiveMap.jsx"; // ⭐ NEW – live tracking map
+import LiveMap from "./pages/LiveMap.jsx"; // ⭐ NEW – Live Tracking Map
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -34,11 +34,12 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Protected dashboard */}
+          {/* Protected Dashboard */}
           <Route
             path="/"
             element={
@@ -48,7 +49,7 @@ function App() {
             }
           >
 
-            {/* Default — Reporter Dashboard */}
+            {/* Default Dashboard — Reporter */}
             <Route index element={<ReporterDashboard />} />
 
             {/* Reporter */}
@@ -57,15 +58,17 @@ function App() {
             {/* Police */}
             <Route path="police" element={<PoliceDashboard />} />
 
-            {/* 🔴 NEW: Live GPS Map */}
+            {/* ⭐ NEW: Live GPS Map */}
             <Route path="map" element={<LiveMap />} />
 
             {/* Admin */}
             <Route path="admin" element={<AdminDashboard />} />
+
           </Route>
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
+
         </Routes>
       </BrowserRouter>
     </AuthProvider>
