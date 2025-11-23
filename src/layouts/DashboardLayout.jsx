@@ -22,17 +22,17 @@ function DashboardLayout() {
             <span className="text-lg font-bold">PASEARCH</span>
           </Link>
           <p className="text-xs text-slate-400 mt-1">
-            Device Recovery & Intelligence
+            Device Recovery
           </p>
         </div>
 
         <nav className="flex-1 px-2 py-4 space-y-1">
           <NavItem to="/" label="Overview" />
-          <NavItem to="/reporter" label="Report Device" />
+          <NavItem to="/reporter" label="Report Section" />
           {(role === "police" || role === "admin") && (
-            <NavItem to="/police" label="Police Tools" />
+            <NavItem to="/police" label="Police Section" />
           )}
-          {role === "admin" && <NavItem to="/admin" label="Admin Panel" />}
+          {role === "admin" && <NavItem to="/admin" label="Admin Section" />}
         </nav>
 
         <div className="px-4 py-4 border-t border-slate-800 text-xs text-slate-400">
@@ -62,7 +62,7 @@ function DashboardLayout() {
             </span>
           </div>
           <div className="text-xs text-slate-400">
-            PASEARCH MVP • IMEI & Account-based Matching
+            Accounts Section
           </div>
         </header>
 

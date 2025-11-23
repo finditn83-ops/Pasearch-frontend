@@ -38,10 +38,10 @@ function LoginPage() {
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
         <h1 className="text-xl font-semibold text-white mb-1">
-          Sign in to PASEARCH
+          Welcome to Pasearch
         </h1>
         <p className="text-xs text-slate-400 mb-4">
-          Secure portal for reporters, police, and admins.
+          Secure portal for everyone.
         </p>
 
         {error && (
